@@ -84,7 +84,7 @@ export default function RegisterPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <Button variant="outline" onClick={() => {}} className="w-full">
                 <Image
                   src="/icons/google.svg"
@@ -93,15 +93,6 @@ export default function RegisterPage() {
                   height={24}
                 />
                 Google
-              </Button>
-              <Button variant="outline" onClick={() => {}} className="w-full">
-                <Image
-                  src="/icons/github.svg"
-                  alt="GitHub"
-                  width={24}
-                  height={24}
-                />
-                GitHub
               </Button>
             </div>
 
