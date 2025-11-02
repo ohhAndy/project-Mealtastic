@@ -1,10 +1,19 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { AxiosError } from "axios";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -51,15 +60,43 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 flex flex-col items-center">
-          <CardTitle className="text-2xl font-bold">
-            Mealtastic
-          </CardTitle>
-          <CardDescription>
-            Welcome to Mealtastic!
-          </CardDescription>
+          <CardTitle className="text-2xl font-bold">Mealtastic</CardTitle>
+          <CardDescription>Welcome to Mealtastic!</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => {}} className="w-full">
+                <Image
+                  src="/icons/google.svg"
+                  alt="Google"
+                  width={24}
+                  height={24}
+                />
+                Google
+              </Button>
+              <Button variant="outline" onClick={() => {}} className="w-full">
+                <Image
+                  src="/icons/github.svg"
+                  alt="GitHub"
+                  width={24}
+                  height={24}
+                />
+                GitHub
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -93,7 +130,7 @@ export default function LoginPage() {
               {isLoading ? "Logging in..." : "Log In"}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
-              {`Don't have an account?`}{' '}
+              {`Don't have an account?`}{" "}
               <Link href="/register" className="text-primary hover:underline">
                 Sign Up
               </Link>

@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
+import Image from "next/image";
+import { Separator } from "@/components/ui/separator";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -82,6 +84,37 @@ export default function RegisterPage() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => {}} className="w-full">
+                <Image
+                  src="/icons/google.svg"
+                  alt="Google"
+                  width={24}
+                  height={24}
+                />
+                Google
+              </Button>
+              <Button variant="outline" onClick={() => {}} className="w-full">
+                <Image
+                  src="/icons/github.svg"
+                  alt="GitHub"
+                  width={24}
+                  height={24}
+                />
+                GitHub
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <Separator />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input
