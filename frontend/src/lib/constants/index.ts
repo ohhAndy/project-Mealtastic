@@ -1,0 +1,2 @@
+export const CUISINE_TYPES = ["italian", "mexican", "chinese", "japanese", "indian", "thai", "french", "mediterranean", "american"]
+export const DIET_TYPES = ["vegetarian", "vegan", "gluten-free", "diary-free", "keto", "paleo", "low-carb"]
