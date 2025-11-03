@@ -29,6 +29,10 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
+  const handleGoogleAuth = () => {
+
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -85,7 +89,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-3">
-              <Button variant="outline" onClick={() => {}} className="w-full">
+              <Button variant="outline" onClick={handleGoogleAuth} className="w-full">
                 <Image
                   src="/icons/google.svg"
                   alt="Google"
