@@ -34,12 +34,17 @@ export async function register (req: Request, res: Response, next: NextFunction)
         secure: process.env.NODE_ENV == "prod" // true: only re-attach for https requests only
       })
     );
+
+    return res.status(200).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    });
   } catch (err) {
     if (err instanceof DatabaseError)
       return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
-  res.sendStatus(200);
 }
 
 export async function login(req: Request, res: Response, next: NextFunction) {
@@ -66,14 +71,19 @@ export async function login(req: Request, res: Response, next: NextFunction) {
         secure: process.env.NODE_ENV == "prod" // true: only re-attach for https requests only
       })
     );
+
+    return res.status(200).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    });
   } catch (err) {
     return res.status(500).end(err);
   }
-  res.sendStatus(200);
 }
 
 export function googleRedirect(req: Request, res: Response) {
-  res.redirect("/");
+  res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}/recipes`);
 }
 
 export function logout(req: Request, res: Response, next: NextFunction) {
@@ -86,6 +96,6 @@ export function logout(req: Request, res: Response, next: NextFunction) {
         maxAge: 0,
       })
     );
-    return res.redirect("/");
+    return res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}/login`);
   });
 }

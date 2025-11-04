@@ -4,10 +4,11 @@ import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import authRoutes from "./routes/authRoutes";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config();
 
-const PORT = 3000;
+const PORT = 3001;
 const app = express();
 
 app.use(express.json());
@@ -22,6 +23,10 @@ app.use(session({
       secure: process.env.NODE_ENV == "prod", // sets the secure flag only with HTTPS in production 
   }
 }))
+app.use(cors({
+  origin: 'http://localhost:3000',
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);
