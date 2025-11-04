@@ -15,12 +15,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AxiosError } from "axios";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+import { googleLogin, register } from "@/lib/api/auth";
+import { useAuthStore } from "@/store/authStore";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const loginUser = useAuthStore((state) => state.login);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -30,7 +32,7 @@ export default function RegisterPage() {
   });
 
   const handleGoogleAuth = () => {
-
+    googleLogin();
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,14 +48,19 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      //TODO: CONNECT BACKEND
-      //   const response = await authAPI.register({
-      //     name: formData.name,
-      //     email: formData.email,
-      //     password: formData.password,
-      //   });
+      const res = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
 
-      //   login(response.data.user, response.data.token);
+      const user = {
+        id: res.id,
+        email: res.email,
+        name: res.name,
+      }
+
+      loginUser(user);
 
       toast("Account created!", {
         description: "Welcome to MealPlanner.",
@@ -61,9 +68,9 @@ export default function RegisterPage() {
 
       router.push("/recipes");
     } catch (error: unknown) {
-      if (error instanceof AxiosError) {
+      if (error instanceof Error) {
         toast("Registration failed", {
-          description: error.response?.data?.message || "Something went wrong",
+          description: error.message || "Something went wrong",
         });
       } else {
         toast("Registration failed", {

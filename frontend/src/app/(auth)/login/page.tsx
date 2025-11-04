@@ -12,6 +12,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { googleLogin, login } from "@/lib/api/auth";
+import { useAuthStore } from "@/store/authStore";
 import { AxiosError } from "axios";
 import Image from "next/image";
 import Link from "next/link";
@@ -21,6 +23,7 @@ import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
+  const loginUser = useAuthStore((state) => state.login);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -28,7 +31,7 @@ export default function LoginPage() {
   });
 
   const handleGoogleAuth = () => {
-
+    googleLogin();
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,9 +39,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      //TODO: CONNECT BACKEND
-      //   const response = await authAPI.login(formData);
-      //   login(response.data.user, response.data.token);
+      const res = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      const user = {
+        id: res.id,
+        email: res.email,
+        name: res.name,
+      }
+
+      loginUser(user);
 
       toast("Welcome back!", {
         description: "You have successfully logged in.",
