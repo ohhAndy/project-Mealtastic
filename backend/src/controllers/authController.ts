@@ -34,6 +34,7 @@ export async function register (req: Request, res: Response, next: NextFunction)
         secure: process.env.NODE_ENV == "prod" // true: only re-attach for https requests only
       })
     );
+    await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.id]);
   } catch (err) {
     if (err instanceof DatabaseError)
       return res.status(500).end(err.message);
