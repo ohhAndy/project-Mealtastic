@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { CUISINE_TYPES, DIET_TYPES } from "@/lib/constants";
+import { CUISINE_TYPES, DIET_TYPES, MAX_TIME_OPTIONS } from "@/lib/constants";
 
 export default function RecipeSearchBar() {
   const [query, setQuery] = useState("");
@@ -20,6 +20,7 @@ export default function RecipeSearchBar() {
   const [showFilters, setShowFilters] = useState(false);
   const [cuisine, setCuisine] = useState('all');
   const [diet, setDiet] = useState('all');
+  const [maxReadyTime, setMaxReadyTime] = useState('all');
 
   const handleSearch = () => {
     //TODO: LINK BACKEND
@@ -73,7 +74,7 @@ export default function RecipeSearchBar() {
       </div>
 
       {showFilters && (
-        <div className="grid grid-cols-2 gap-4 border-t pt-4">
+        <div className="grid grid-cols-3 gap-4 border-t pt-4">
           <div className="space-y-2">
             <Label className="font-medium">Cuisine</Label>
             <Select value={cuisine} onValueChange={setCuisine}>
@@ -102,6 +103,23 @@ export default function RecipeSearchBar() {
                 {DIET_TYPES.map((d) => (
                   <SelectItem key={d} value={d}>
                     {d.split("-").map(word => word.charAt(0).toLocaleUpperCase() + word.slice(1)).join(" ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-medium">Prep Time</Label>
+            <Select value={maxReadyTime} onValueChange={setMaxReadyTime}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Times" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Time</SelectItem>
+                {MAX_TIME_OPTIONS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {`${t} minutes`}
                   </SelectItem>
                 ))}
               </SelectContent>
