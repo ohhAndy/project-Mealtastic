@@ -26,7 +26,10 @@ app.use(session({
 // Routes
 app.use('/api/auth', authRoutes);
 
-app.get('/', (_, res) => res.send('Mealtastic API running...'));
+// development: use express to serve frontend files
+// production: use a dockerized nginx to serve frontend files
+if (process.env.NODE_ENV=="dev") app.use(express.static('../../frontend/src'));
+
 export const server = createServer(app).listen(PORT, function () {
   console.log("HTTP server on http://localhost:%s", PORT);
 });

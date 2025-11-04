@@ -4,8 +4,10 @@
   "description": "Mealtastic backend",
   "main": "app.mjs",
   "scripts": {
-    "prod": "NODE_ENV=prod node app.mjs",
-    "dev": "ts-node src/app.ts"
+    "db:init": "psql -U postgres -d mydb -f db/schema.sql", 
+    "build": "tsc",
+    "prod": "NODE_ENV=prod node dist/app.mjs",
+    "dev": "NODE_ENV=dev ts-node src/app.ts"
   },
   "repository": {
     "type": "git",

@@ -10,5 +10,8 @@ router.post('/login', checkEmail, authCtrl.login);
 router.post('/logout', authCtrl.logout);
 // router.get('/profile', authCtrl.profile);
 router.get('/google', passport.authenticate("google", { scope: ["profile", "email"] }));
-router.get('/google/callback', passport.authenticate("google", { failureRedirect: "/" }), authCtrl.googleRedirect);
+router.get('/google/callback', passport.authenticate("google", { failureRedirect: "/" }), 
+  (req, res) => { if (req.user && req.user.id) req.session.userId = req.user.id; },
+  authCtrl.googleRedirect
+);
 export default router;
