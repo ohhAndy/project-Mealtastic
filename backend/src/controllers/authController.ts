@@ -1,10 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { genSalt, hash, compare } from "bcrypt";
-import { parse, serialize } from "cookie";
+import { serialize } from "cookie";
 import pool from "../db";
-import { networkInterfaces } from "os";
 import { DatabaseError } from "pg";
-import passport from "../config/passport";
 
 // all sql queries and promises code help from chatgpt
 export async function register (req: Request, res: Response, next: NextFunction) {
