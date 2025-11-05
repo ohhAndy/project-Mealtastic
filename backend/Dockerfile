@@ -35,6 +35,7 @@ FROM node:24-slim AS runner
 WORKDIR /home/app
 
 # Copy only what's needed to run
+COPY /db ./
 COPY package*.json ./
 RUN npm ci --omit=dev
 
