@@ -18,7 +18,7 @@ router.get(
   passport.authenticate("google", { failureRedirect: `/` }),
   (req, res) => {
     if (req.user && req.user.id) req.session.userId = req.user.id;
-    authCtrl.googleRedirect;
+    authCtrl.googleRedirect(req, res);
   }
 );
 export default router;
