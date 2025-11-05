@@ -5,9 +5,9 @@ export async function register(data: {
   email: string;
   password: string;
 }) {
-  console.log(`${API}/api/auth/register`);
+  console.log(`/api/auth/register`);
   try {
-    const res = await fetch(`${API}/api/auth/register`, {
+    const res = await fetch(`/api/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,7 +32,7 @@ export async function login(data: {
   password: string;
 }) {
   try {
-    const res = await fetch(`${API}/api/auth/login`, {
+    const res = await fetch(`/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +54,7 @@ export async function login(data: {
 
 export async function logout() {
   try {
-    const res = await fetch(`${API}/api/auth/logout`, {
+    const res = await fetch(`/api/auth/logout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -73,7 +73,7 @@ export async function logout() {
 
 export async function getProfile() {
   try {
-    const res = await fetch(`${API}/api/auth/profile`, {
+    const res = await fetch(`/api/auth/profile`, {
       method: "GET",
       credentials: 'include',
     });
@@ -90,5 +90,5 @@ export async function getProfile() {
 
 
 export function googleLogin() {
-    window.location.href = `${API}/api/auth/google`;
+    window.location.href = `/api/auth/google`;
 }
