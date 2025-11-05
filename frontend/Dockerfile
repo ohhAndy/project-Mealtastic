@@ -32,7 +32,7 @@ COPY --from=builder /home/app/.next ./.next
 COPY --from=builder /home/app/public ./public
 COPY --from=builder /home/app/node_modules ./node_modules
 COPY --from=builder /home/app/package.json ./package.json
-COPY --from=builder /home/app/next.config.js ./next.config.js
+COPY --from=builder /home/app/next.config.mjs ./next.config.mjs
 
 # Expose port
 EXPOSE 3000
