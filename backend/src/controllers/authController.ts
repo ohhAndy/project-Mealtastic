@@ -43,11 +43,15 @@ export async function register(
       })
     );
 
+    await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.id]);
+
     return res.status(200).json({
       id: user.id,
       email: user.email,
       name: user.name,
     });
+
+
   } catch (err) {
     if (err instanceof DatabaseError) return res.status(500).end(err.message);
     return res.status(500).end(err);

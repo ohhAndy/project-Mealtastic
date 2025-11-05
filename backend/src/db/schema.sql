@@ -45,12 +45,14 @@ CREATE TABLE recipes (
   title TEXT NOT NULL,
   image_url TEXT,
   prep_time INT,
-  calories INT,
-  cuisine TEXT,
-  diet TEXT,
+  cuisines TEXT[] DEFAULT '{}',
+  diets TEXT[] DEFAULT '{}',
   source TEXT,
   cached_data JSONB,
-  rating FLOAT DEFAULT 0
+  rating FLOAT DEFAULT 0,
+  cached_at TIMESTAMP DEFAULT NOW(),
+  expires_in INTERVAL DEFAULT INTERVAL '7 days',
+  persistent BOOLEAN DEFAULT FALSE
 );
 
 -- =========================

@@ -3,6 +3,7 @@ import session from "express-session";
 import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import authRoutes from "./routes/authRoutes";
+import recipeRoutes from "./routes/recipesRoutes";
 import dotenv from "dotenv";
 import cors from "cors";
 
@@ -35,7 +36,8 @@ app.use(
 );
 
 // Routes
-app.use("/api/auth", authRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/recipes', recipeRoutes);
 
 // development: use express to serve frontend files
 // production: use a dockerized nginx to serve frontend files

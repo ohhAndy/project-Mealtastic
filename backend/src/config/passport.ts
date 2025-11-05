@@ -41,6 +41,7 @@ passport.use(
             user = await pool.query('UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *', [googleId, email]);
           } else {
             user = await pool.query(`INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING *`, [name, email, googleId]);
+            await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.rows[0].id]);
           }
         }
 
