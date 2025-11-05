@@ -33,7 +33,7 @@ async function verifyConnection(): Promise<void> {
 
 async function initializeSchema() {
   try {
-    const schemaPath = path.resolve(__dirname, "../db/schema.sql");
+    const schemaPath = path.resolve(__dirname, "/db/schema.sql");
     const schemaSQL = fs.readFileSync(schemaPath, "utf-8");
 
     console.log("Running schema.sql...");
