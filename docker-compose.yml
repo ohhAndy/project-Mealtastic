@@ -42,20 +42,29 @@ services:
     networks:
       - proxy
     environment:
-      - VIRTUAL_HOST=${REPLACE_WITH_PROJECT_DOMAIN}
-      - LETSENCRYPT_HOST=${REPLACE_WITH_PROJECT_DOMAIN}
+      - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
+      - LETSENCRYPT_HOST=project-mealtastic.amazingcloud.space
+      - NEXT_PUBLIC_API_URL=project-mealtastic.amazingcloud.space
 
   backend:
     build: backend
     image: backend
     container_name: backend
     restart: unless-stopped
-    volumes:
-      - ./db:/home/app/db:rw
-      - ./uploads:/home/app/uploads:rw
     networks:
       - proxy
-      
+  
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mealtastic
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # ports:
+    #   - "5432:5432" 
   # mongo:
   #   image: mongo
   #   container_name: mongo
@@ -66,3 +75,6 @@ services:
 networks:
   proxy:
     driver: bridge
+
+volumes:
+  pgdata:

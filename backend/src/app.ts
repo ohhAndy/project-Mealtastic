@@ -37,7 +37,7 @@ app.use(
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/recipes', recipeRoutes);
+// app.use('/api/recipes', recipeRoutes);
 
 // development: use express to serve frontend files
 // production: use a dockerized nginx to serve frontend files

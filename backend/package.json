@@ -6,7 +6,7 @@
   "scripts": {
     "db:init": "psql -U postgres -d mydb -f db/schema.sql",
     "build": "tsc",
-    "prod": "NODE_ENV=prod node dist/app.mjs",
+    "prod": "NODE_ENV=prod node dist/app.js",
     "dev": "NODE_ENV=dev ts-node src/app.ts"
   },
   "repository": {

@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import fs from "fs";
+import path from "path";
 
 // chatgpt
 // Load environment variables from .env file
@@ -29,8 +31,24 @@ async function verifyConnection(): Promise<void> {
   }
 }
 
+async function initializeSchema() {
+  try {
+    const schemaPath = path.resolve(__dirname, "../db/schema.sql");
+    const schemaSQL = fs.readFileSync(schemaPath, "utf-8");
+
+    console.log("Running schema.sql...");
+    await pool.query(schemaSQL);
+    console.log("Database schema initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize schema:", err);
+  }
+}
+
 // Immediately verify connection upon module load.
 verifyConnection();
+
+// Call this right after connecting
+initializeSchema();
 
 // Export the pool to be used across the application.
 export default pool;
