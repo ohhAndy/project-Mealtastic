@@ -5,6 +5,7 @@ export async function register(data: {
   email: string;
   password: string;
 }) {
+  console.log(`${API}/api/auth/register`);
   try {
     const res = await fetch(`${API}/api/auth/register`, {
       method: "POST",
@@ -48,6 +49,42 @@ export async function login(data: {
     
   } catch (error) {
     console.error("Error logging in:", error);
+  }
+}
+
+export async function logout() {
+  try {
+    const res = await fetch(`${API}/api/auth/logout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to logout: ${res.status}`);
+    }
+    
+  } catch (error) {
+    console.error("Error logging out:", error);
+  }
+}
+
+export async function getProfile() {
+  try {
+    const res = await fetch(`${API}/api/auth/profile`, {
+      method: "GET",
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to get user profile: ${res.status}`);
+    }
+    
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching user data:", error);
   }
 }
 
