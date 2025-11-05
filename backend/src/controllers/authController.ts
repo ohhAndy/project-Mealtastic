@@ -92,7 +92,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 }
 
 export function googleRedirect(req: Request, res: Response) {
-  res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}`);
+  res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}/recipes`);
 }
 
 export async function profile(req: Request, res: Response, next: NextFunction) {
