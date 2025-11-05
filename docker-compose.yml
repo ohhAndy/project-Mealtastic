@@ -54,6 +54,8 @@ services:
     restart: unless-stopped
     networks:
       - proxy
+    env_file:
+      - ./backend/.env
   
   db:
     image: postgres:17
