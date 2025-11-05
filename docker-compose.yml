@@ -53,8 +53,6 @@ services:
     image: backend
     container_name: backend
     restart: unless-stopped
-    networks:
-      - proxy
     env_file:
       - ./backend/.env
     depends_on:
