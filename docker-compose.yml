@@ -31,6 +31,7 @@ services:
       - proxy
 
   frontend:
+    build: frontend
     image: nginx:1.29-alpine-slim
     container_name: frontend
     restart: unless-stopped
