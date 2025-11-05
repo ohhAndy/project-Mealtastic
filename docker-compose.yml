@@ -32,7 +32,6 @@ services:
 
   frontend:
     build: frontend
-    image: nginx:1.29-alpine-slim
     container_name: frontend
     restart: unless-stopped
     expose:
@@ -46,6 +45,8 @@ services:
       - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
       - LETSENCRYPT_HOST=project-mealtastic.amazingcloud.space
       - NEXT_PUBLIC_API_URL=project-mealtastic.amazingcloud.space
+    depends_on:
+      - backend
 
   backend:
     build: backend
@@ -56,6 +57,11 @@ services:
       - proxy
     env_file:
       - ./backend/.env
+    depends_on:
+      - db
+    networks:
+      - proxy
+      - internal
   
   db:
     image: postgres:17
@@ -66,6 +72,8 @@ services:
       POSTGRES_DB: mealtastic
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
     # ports:
     #   - "5432:5432" 
   # mongo:
@@ -77,6 +85,8 @@ services:
 
 networks:
   proxy:
+    driver: bridge
+  internal:
     driver: bridge
 
 volumes:
