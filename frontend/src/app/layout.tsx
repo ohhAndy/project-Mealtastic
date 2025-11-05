@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import NavBar from "@/components/layout/NavBar";
+import AuthProvider from "@/components/providers/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,14 +25,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-    return (
+  return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-100`}
       >
-        <NavBar />
-        <Toaster />
-        {children}
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            <NavBar />
+            <main className="flex-1">{children}</main>
+          </div>
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
