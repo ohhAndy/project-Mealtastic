@@ -45,6 +45,7 @@ services:
       - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
       - LETSENCRYPT_HOST=project-mealtastic.amazingcloud.space
       - NEXT_PUBLIC_API_URL=project-mealtastic.amazingcloud.space
+      - VIRTUAL_PORT=3000
     depends_on:
       - backend
 
