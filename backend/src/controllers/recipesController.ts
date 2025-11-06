@@ -151,8 +151,9 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
   try{
     const recipe_id = req.params.id;
     const result = await pool.query("SELECT * FROM recipes WHERE id = $1::text LIMIT 1;", [recipe_id]);
-    if (result.rows.length > 0)
-      res.json(result.rows[0]);
+    if (result.rows.length > 0) {
+      return res.json(result.rows[0]);
+    }
 
     // recipe's not in our db so try externally in spoonacular
     const recipe = cacheRecipe(recipe_id, false, undefined).catch(err => console.log(`caching failed in background for recipe ${recipe_id}: ${err}`));
