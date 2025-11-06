@@ -58,6 +58,10 @@ services:
       - ./backend/.env
     depends_on:
       - db
+    environment:
+      - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
+      - VIRTUAL_PATH=/api/
+      - VIRTUAL_PORT=3001
     networks:
       - proxy
       - internal
