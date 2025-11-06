@@ -39,7 +39,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     ];
 
     let result = await pool.query(sql_query, params);
-    if (result.rows.length == limit) {
+    if (result.rows.length > 0) {
       return res.json(result.rows);
     }
 
