@@ -22,15 +22,18 @@ app.use(
     saveUninitialized: false,
     cookie: {
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "lax",
+      sameSite: "none",
       secure: process.env.NODE_ENV == "prod", // sets the secure flag only with HTTPS in production
       httpOnly: true
     },
   })
 );
+
+app.set("trust proxy", 1);
+
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", process.env.NEXT_PUBLIC_FRONTEND_URL!],
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   })
