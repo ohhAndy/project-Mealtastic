@@ -156,8 +156,10 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
     const recipe = cacheRecipe(recipe_id, false, undefined).catch(err => console.log(`caching failed in background for recipe ${recipe_id}: ${err}`));
     return res.json(recipe);
   } catch(err) {
-    if (err instanceof Error)
+    if (err instanceof Error) {
+      console.log(err);
       return res.status(500).end(err.message);
+    }
     return res.status(500).end(err);
   }
 }
