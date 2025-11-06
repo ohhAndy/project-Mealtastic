@@ -148,7 +148,7 @@ async function cacheRecipe(recipe_id: string, persistent: boolean, rating: numbe
 export async function getRecipe(req: Request, res: Response, next: NextFunction) {
   try{
     const recipe_id = req.params.id;
-    const result = await pool.query('SELECT * FROM recipes WHERE id = $1 LIMIT 1;', [recipe_id]);
+    const result = await pool.query("SELECT * FROM recipes WHERE id = '$1' LIMIT 1;", [recipe_id]);
     if (result.rows.length > 0)
       res.json(result.rows[0]);
 
@@ -165,8 +165,8 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
     const recipe_id =   req.params.id;
-    await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2);", [req.session.userId, recipe_id]);
-    const recipe = await pool.query("UPDATE recipes SET persistent = TRUE WHERE id = $1 RETURNING *;", [recipe_id]);
+    await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, '$2');", [req.session.userId, recipe_id]);
+    const recipe = await pool.query("UPDATE recipes SET persistent = TRUE WHERE id = '$1' RETURNING *;", [recipe_id]);
 
     // ensure that the recipe is cached
     if (recipe.rows.length < 1) {
@@ -208,10 +208,10 @@ export async function deleteSavedRecipe(req: Request, res: Response, next: NextF
     await pool.query(
       `DELETE 
       FROM saved_recipes
-      WHERE recipe_id = $1 AND user_id = $2;`,
+      WHERE recipe_id = '$1' AND user_id = $2;`,
       [recipe_id, req.session.userId]
     );
-    await pool.query("UPDATE recipes SET persistent = FALSE WHERE id = $1 AND id NOT IN (SELECT recipe_id FROM reviews);", [recipe_id]);
+    await pool.query("UPDATE recipes SET persistent = FALSE WHERE id = '$1' AND id NOT IN (SELECT recipe_id FROM reviews);", [recipe_id]);
     res.sendStatus(200);
   } catch(err) {
     if (err instanceof Error)
@@ -228,7 +228,7 @@ export async function postReview(req: Request, res: Response, next: NextFunction
     await pool.query("INSERT INTO reviews (user_id, recipe_id, rating, comment) VALUES ($1, $2, $3, $4);", [req.session.userId, recipe_id, rating, comment]);
 
     // update average rating, persistence and make sure recipe is cached
-    const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1),persistent = TRUE WHERE id = $1 RETURNING *;", [recipe_id]);
+    const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = '$1'),persistent = TRUE WHERE id = '$1' RETURNING *;", [recipe_id]);
 
     // ensure that the recipe is cached
     if (recipe.rows.length < 1) {
@@ -250,7 +250,7 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
     const result = await pool.query(
       `SELECT *
       FROM reviews
-      WHERE recipe_id = $1
+      WHERE recipe_id = '$1'
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3;`,
       [recipe_id, limit, limit*page]
