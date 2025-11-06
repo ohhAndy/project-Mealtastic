@@ -30,7 +30,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 --  USER PREFERENCES (1-1)
 -- =========================
 CREATE TABLE user_preferences (
-  user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   diet TEXT,
   calorie_min INT,
   calorie_max INT,
@@ -59,7 +59,7 @@ CREATE TABLE recipes (
 --  SAVED RECIPES (M:N join)
 -- =========================
 CREATE TABLE saved_recipes (
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
   saved_at TIMESTAMP DEFAULT NOW(),
   PRIMARY KEY (user_id, recipe_id)
@@ -70,7 +70,7 @@ CREATE TABLE saved_recipes (
 -- =========================
 CREATE TABLE reviews (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
   rating INT NOT NULL,
   comment TEXT,
@@ -82,7 +82,7 @@ CREATE TABLE reviews (
 -- =========================
 CREATE TABLE meal_plans (
   id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   week_start DATE NOT NULL,
   generated BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW()
@@ -105,7 +105,7 @@ CREATE TABLE meal_plan_entries (
 CREATE TABLE shopping_lists (
   id SERIAL PRIMARY KEY,
   plan_id INT REFERENCES meal_plans(id) ON DELETE CASCADE,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

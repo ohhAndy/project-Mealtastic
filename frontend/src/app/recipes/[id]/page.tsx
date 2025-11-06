@@ -1,0 +1,64 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { useRequireAuth } from '@/lib/hooks/useAuth';
+import { useRecipes } from '@/lib/hooks/useRecipes';
+import RecipeDetails from '@/components/recipes/RecipeDetails';
+import { Loader2 } from 'lucide-react';
+import { Recipe } from '@/types';
+
+export default function RecipeDetailPage() {
+  const params = useParams();
+  const recipeId = params.id as string; // Your backend uses string IDs
+  const { user, isLoading: authLoading } = useRequireAuth();
+  const { getRecipeById } = useRecipes();
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRecipe = async () => {
+      if (user && recipeId) {
+        setIsLoading(true);
+        const data = await getRecipeById(recipeId);
+        if (data) {
+          setRecipe(data);
+        }
+        setIsLoading(false);
+      }
+    };
+
+    loadRecipe();
+  }, [user, recipeId]);
+
+  if (authLoading || !user) return null;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-center items-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-20">
+          <h2 className="text-2xl font-semibold mb-2">Recipe not found</h2>
+          <p className="text-muted-foreground">
+            {`The recipe you're looking for doesn't exist or has been removed.`}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <RecipeDetails recipe={recipe} />
+    </div>
+  );
+}
