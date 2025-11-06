@@ -24,6 +24,7 @@ app.use(
       maxAge: 1000 * 60 * 60 * 24,
       sameSite: "lax",
       secure: process.env.NODE_ENV == "prod", // sets the secure flag only with HTTPS in production
+      httpOnly: true
     },
   })
 );

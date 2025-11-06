@@ -7,7 +7,7 @@ export async function register(data: {
 }) {
   console.log(`/api/auth/register`);
   try {
-    const res = await fetch(`/api/auth/register`, {
+    const res = await fetch(`http://localhost:3001/api/auth/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,7 +32,7 @@ export async function login(data: {
   password: string;
 }) {
   try {
-    const res = await fetch(`/api/auth/login`, {
+    const res = await fetch(`http://localhost:3001/api/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -54,7 +54,7 @@ export async function login(data: {
 
 export async function logout() {
   try {
-    const res = await fetch(`/api/auth/logout`, {
+    const res = await fetch(`http://localhost:3001/api/auth/logout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -73,7 +73,7 @@ export async function logout() {
 
 export async function getProfile() {
   try {
-    const res = await fetch(`/api/auth/profile`, {
+    const res = await fetch(`http://localhost:3001/api/auth/profile`, {
       method: "GET",
       credentials: 'include',
     });
