@@ -13,22 +13,34 @@ import {
   SelectValue,
 } from "../ui/select";
 import { CUISINE_TYPES, DIET_TYPES, MAX_TIME_OPTIONS } from "@/lib/constants";
+import { RecipeSearchParams } from "@/types";
 
-export default function RecipeSearchBar() {
+interface RecipeSearchBarProps {
+  onSearch: (params: RecipeSearchParams) => void;
+  isLoading?: boolean;
+}
+
+export default function RecipeSearchBar({ onSearch, isLoading }: RecipeSearchBarProps) {
   const [query, setQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [cuisine, setCuisine] = useState('all');
-  const [diet, setDiet] = useState('all');
-  const [maxReadyTime, setMaxReadyTime] = useState('all');
+  const [cuisine, setCuisine] = useState("all");
+  const [diet, setDiet] = useState("all");
+  const [maxReadyTime, setMaxReadyTime] = useState("all");
 
-  const handleSearch = () => {
-    //TODO: LINK BACKEND
-  }
+  const handleSearch = async () => {
+    await onSearch({
+      query: query || undefined, 
+      cuisine: cuisine === 'all' ? undefined : cuisine,
+      diet: diet === 'all' ? undefined : diet,
+      maxPrepTime: maxReadyTime === 'all' ? undefined : maxReadyTime,
+      page: 0,
+      limit: 20,
+    });
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-        handleSearch()
+      handleSearch();
     }
   };
 
@@ -36,7 +48,8 @@ export default function RecipeSearchBar() {
     setQuery("");
     setCuisine("all");
     setDiet("all");
-  }
+    onSearch({ page: 0, limit: 20 })
+  };
 
   const hasActiveFilters = query || cuisine != "all" || diet != "all";
 
@@ -61,7 +74,11 @@ export default function RecipeSearchBar() {
         >
           <SlidersHorizontal></SlidersHorizontal>
         </Button>
-        <Button onClick={handleSearch} disabled={isLoading} className="hover:bg-green-700">
+        <Button
+          onClick={handleSearch}
+          disabled={isLoading}
+          className="hover:bg-green-700"
+        >
           {isLoading ? (
             <>
               <Loader2 className="animate-spin"></Loader2>
@@ -102,7 +119,13 @@ export default function RecipeSearchBar() {
                 <SelectItem value="all">All Diets</SelectItem>
                 {DIET_TYPES.map((d) => (
                   <SelectItem key={d} value={d}>
-                    {d.split("-").map(word => word.charAt(0).toLocaleUpperCase() + word.slice(1)).join(" ")}
+                    {d
+                      .split("-")
+                      .map(
+                        (word) =>
+                          word.charAt(0).toLocaleUpperCase() + word.slice(1)
+                      )
+                      .join(" ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -128,9 +151,13 @@ export default function RecipeSearchBar() {
 
           {hasActiveFilters && (
             <div className="col-span-2">
-                <Button size="sm" onClick={handleClearFilters} className="hover:bg-green-700">
-                    Clear all filters
-                </Button>
+              <Button
+                size="sm"
+                onClick={handleClearFilters}
+                className="hover:bg-green-700"
+              >
+                Clear all filters
+              </Button>
             </div>
           )}
         </div>

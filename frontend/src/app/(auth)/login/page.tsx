@@ -58,9 +58,9 @@ export default function LoginPage() {
 
       router.push("/recipes");
     } catch (error: unknown) {
-      if (error instanceof AxiosError) {
-        toast("Login failed", {
-          description: error.response?.data?.message || "Invalid credentials",
+      if (error instanceof Error) {
+        toast("Registration failed", {
+          description: error.message || "Something went wrong",
         });
       } else {
         toast("Login failed", {

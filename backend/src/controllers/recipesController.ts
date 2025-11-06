@@ -11,8 +11,10 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
   const cuisine = req.query.cuisine ? (req.query.cuisine as string).toLowerCase() : null;
   const diet = req.query.diet ? (req.query.diet as string).toLowerCase() : null;
   const maxPrepTime = req.query.maxPrepTime ? parseInt(req.query.maxPrepTime as string) : 1000000000;
-  if (!main_query)
-    return res.status(400).end("query is missing");
+
+
+  // if (!main_query)
+  //   return res.status(400).end("query is missing");
   try{
     let sql_query = 
     `
@@ -37,8 +39,10 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     ];
 
     let result = await pool.query(sql_query, params);
-    if (result.rows.length == limit)
+    if (result.rows.length == limit) {
       return res.json(result.rows);
+    }
+
 
     // not enough results in db, try spoonacular
     const spoonacular_url = new URL("https://api.spoonacular.com/recipes/complexSearch");
@@ -133,7 +137,7 @@ async function cacheRecipe(recipe_id: string, persistent: boolean, rating: numbe
 export async function getRecipe(req: Request, res: Response, next: NextFunction) {
   try{
     const recipe_id = req.params.id;
-    const result = await pool.query('SELECT * FROM recipe WHERE id = $1 LIMIT 1;', [recipe_id]);
+    const result = await pool.query('SELECT * FROM recipes WHERE id = $1 LIMIT 1;', [recipe_id]);
     if (result.rows.length > 0)
       res.json(result.rows[0]);
 
@@ -149,7 +153,7 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
 
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
-    const recipe_id = req.params.id;
+    const recipe_id =   req.params.id;
     await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2);", [req.session.userId, recipe_id]);
     const recipe = await pool.query("UPDATE recipes SET persistent = TRUE WHERE id = $1 RETURNING *;", [recipe_id]);
 
