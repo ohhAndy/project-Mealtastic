@@ -78,30 +78,30 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
         cached_data: recipe,
         rating: 0
       });
-      await Promise.all(
-        recipes.map(async (recipe: any) => {
-          try {
-            const cuisines = Array.isArray(recipe.cuisines) ? recipe.cuisines : [];
-            const diets = Array.isArray(recipe.diets) ? recipe.diets : [];
-            await pool.query(
-              "INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING;",
-              [
-                recipe.id?.toString(),
-                recipe.title,
-                recipe.image,
-                recipe.readyInMinutes ?? 0,
-                cuisines,
-                diets,
-                recipe.sourceUrl ?? null,
-                JSON.stringify(recipe),
-              ]
-            );
-          } catch (err) {
-            console.error(`Failed to cache recipe ${recipe.id}:`, err);
-          }
-        })
-      );
     }
+    await Promise.all(
+      recipes.map(async (recipe: any) => {
+        try {
+          const cuisines = Array.isArray(recipe.cuisines) ? recipe.cuisines : [];
+          const diets = Array.isArray(recipe.diets) ? recipe.diets : [];
+          await pool.query(
+            "INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING;",
+            [
+              recipe.id?.toString(),
+              recipe.title,
+              recipe.image,
+              recipe.readyInMinutes ?? 0,
+              cuisines,
+              diets,
+              recipe.sourceUrl ?? null,
+              JSON.stringify(recipe),
+            ]
+          );
+        } catch (err) {
+          console.error(`Failed to cache recipe ${recipe.id}:`, err);
+        }
+      })
+    );
     return res.json(recipe_list);
   }
   catch(err) {
