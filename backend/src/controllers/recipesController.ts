@@ -78,7 +78,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
         cached_data: recipe,
         rating: 0
       });
-      pool.query("INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING;",
+      await pool.query("INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING;",
         [
           recipe.id?.toString(),
           recipe.title,
@@ -89,7 +89,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
           recipe.sourceUrl,
           JSON.stringify(recipe),
         ]
-      ).catch(err => console.log(`caching failed in background for recipe ${recipe.id}: ${err}`));
+      )
     }
     return res.json(recipe_list);
   }
