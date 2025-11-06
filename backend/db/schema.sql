@@ -3,7 +3,7 @@
 -- =========================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT,
   email TEXT UNIQUE NOT NULL,
@@ -22,14 +22,14 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_user_modtime
+CREATE TRIGGER IF NOT EXISTS update_user_modtime
 BEFORE UPDATE ON users
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =========================
 --  USER PREFERENCES (1-1)
 -- =========================
-CREATE TABLE user_preferences (
+CREATE TABLE IF NOT EXISTS user_preferences (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   diet TEXT,
   calorie_min INT,
@@ -40,7 +40,7 @@ CREATE TABLE user_preferences (
 -- =========================
 --  RECIPES
 -- =========================
-CREATE TABLE recipes (
+CREATE TABLE IF NOT EXISTS recipes (
   id TEXT PRIMARY KEY,                -- can be external API id or UUID
   title TEXT NOT NULL,
   image_url TEXT,
@@ -58,7 +58,7 @@ CREATE TABLE recipes (
 -- =========================
 --  SAVED RECIPES (M:N join)
 -- =========================
-CREATE TABLE saved_recipes (
+CREATE TABLE IF NOT EXISTS saved_recipes (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
   saved_at TIMESTAMPTZ DEFAULT NOW(),
@@ -68,7 +68,7 @@ CREATE TABLE saved_recipes (
 -- =========================
 --  REVIEWS
 -- =========================
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
@@ -80,7 +80,7 @@ CREATE TABLE reviews (
 -- =========================
 --  MEAL PLANS
 -- =========================
-CREATE TABLE meal_plans (
+CREATE TABLE IF NOT EXISTS meal_plans (
   id SERIAL PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   week_start DATE NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE meal_plans (
 -- =========================
 --  MEAL PLAN ENTRIES (1:N from meal_plans)
 -- =========================
-CREATE TABLE meal_plan_entries (
+CREATE TABLE IF NOT EXISTS meal_plan_entries (
   id SERIAL PRIMARY KEY,
   plan_id INT REFERENCES meal_plans(id) ON DELETE CASCADE,
   date DATE NOT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE meal_plan_entries (
 -- =========================
 --  SHOPPING LISTS
 -- =========================
-CREATE TABLE shopping_lists (
+CREATE TABLE IF NOT EXISTS shopping_lists (
   id SERIAL PRIMARY KEY,
   plan_id INT REFERENCES meal_plans(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -112,7 +112,7 @@ CREATE TABLE shopping_lists (
 -- =========================
 --  SHOPPING ITEMS
 -- =========================
-CREATE TABLE shopping_items (
+CREATE TABLE IF NOT EXISTS shopping_items (
   id SERIAL PRIMARY KEY,
   list_id INT REFERENCES shopping_lists(id) ON DELETE CASCADE,
   ingredient TEXT NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE shopping_items (
 -- =========================
 --  INDEXES (optional but recommended)
 -- =========================
-CREATE INDEX idx_saved_recipes_user ON saved_recipes(user_id);
-CREATE INDEX idx_reviews_recipe ON reviews(recipe_id);
-CREATE INDEX idx_meal_plan_entries_plan ON meal_plan_entries(plan_id);
-CREATE INDEX idx_shopping_items_list ON shopping_items(list_id);
+CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_recipe ON reviews(recipe_id);
+CREATE INDEX IF NOT EXISTS idx_meal_plan_entries_plan ON meal_plan_entries(plan_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_items_list ON shopping_items(list_id);
