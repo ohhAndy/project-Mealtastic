@@ -13,7 +13,7 @@ export async function searchRecipesAPI(
     ).toString();
 
 
-    const res = await fetch(`${API}/api/recipes/search?${queryString}`, {
+    const res = await fetch(`/api/recipes/search?${queryString}`, {
       method: "GET",
       credentials: "include",
     });
@@ -27,7 +27,7 @@ export async function searchRecipesAPI(
 
 export async function getRecipeByIdAPI(id: string) {
   try {
-    const res = await fetch(`${API}/api/recipes/${id}`, {
+    const res = await fetch(`/api/recipes/${id}`, {
       method: "GET",
       credentials: "include",
     });
@@ -41,7 +41,7 @@ export async function getRecipeByIdAPI(id: string) {
 
 export async function saveRecipeAPI(id: string) {
   try {
-    const res = await fetch(`${API}/api/recipes/${id}/save`, {
+    const res = await fetch(`/api/recipes/${id}/save`, {
       method: "POST",
       credentials: "include",
     });
@@ -54,7 +54,7 @@ export async function saveRecipeAPI(id: string) {
 
 export async function unsaveRecipeAPI(id: string) {
   try {
-    const res = await fetch(`${API}/api/recipes/${id}/save`, {
+    const res = await fetch(`/api/recipes/${id}/save`, {
       method: "DELETE",
       credentials: "include",
     });
@@ -73,7 +73,7 @@ export async function getSavedRecipesAPI(params?: { page?: number; limit?: numbe
         .map(([k, v]) => [k, String(v)])
     ).toString() : '';
 
-    const res = await fetch(`${API}/api/recipes/saved${queryString ? '?' + queryString : ''}`, {
+    const res = await fetch(`/api/recipes/saved${queryString ? '?' + queryString : ''}`, {
       method: "GET",
       credentials: "include",
     });
@@ -87,7 +87,7 @@ export async function getSavedRecipesAPI(params?: { page?: number; limit?: numbe
 
 export async function postReviewAPI(id: string, data: { rating: number; comment: string }) {
   try {
-    const res = await fetch(`${API}/api/recipes/${id}/reviews`, {
+    const res = await fetch(`/api/recipes/${id}/reviews`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -113,7 +113,7 @@ export async function getReviewsAPI(id: string, params?: { page?: number; limit?
         ).toString()
       : '';
 
-    const res = await fetch(`${API}/api/recipes/${id}/reviews${queryString ? '?' + queryString : ''}`, {
+    const res = await fetch(`/api/recipes/${id}/reviews${queryString ? '?' + queryString : ''}`, {
       method: "GET",
       credentials: "include",
     });
