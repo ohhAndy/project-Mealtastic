@@ -31,7 +31,6 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- =========================
 CREATE TABLE user_preferences (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  diet TEXT,
   calorie_min INT,
   calorie_max INT,
   exclude_ingredients TEXT[] DEFAULT '{}'
@@ -54,6 +53,7 @@ CREATE TABLE recipes (
   expires_in INTERVAL DEFAULT INTERVAL '7 days',
   persistent BOOLEAN DEFAULT FALSE
 );
+
 
 -- =========================
 --  SAVED RECIPES (M:N join)

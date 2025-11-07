@@ -8,8 +8,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Users, Heart } from 'lucide-react';
-import { toast } from 'sonner';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRecipes } from '@/lib/hooks/useRecipes';
 
 interface RecipeCardProps {
@@ -18,9 +17,13 @@ interface RecipeCardProps {
 }
 
 export default function RecipeCard({ recipe, onSaveToggle }: RecipeCardProps) {
-  const [isSaved, setIsSaved] = useState(/*recipe.isSaved ||*/ false);
+  const { isRecipeSaved, saveRecipe, unsaveRecipe } = useRecipes();
+  const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { saveRecipe, unsaveRecipe } = useRecipes();
+
+  useEffect(() => {
+    setIsSaved(isRecipeSaved(recipe.id));
+  }, [recipe.id, isRecipeSaved]);
     
   const totalTime = recipe.prep_time || 0;
 
@@ -30,24 +33,17 @@ export default function RecipeCard({ recipe, onSaveToggle }: RecipeCardProps) {
 
     try {
       if (isSaved) {
-        saveRecipe(recipe.id);
-        setIsSaved(false);
-        toast.success('Recipe removed', {
-          description: 'Recipe removed from your saved recipes.',
-        });
+        const success = await unsaveRecipe(recipe.id);
+        if (success) {
+          setIsSaved(false);
+        }
       } else {
-        unsaveRecipe(recipe.id);
-        setIsSaved(true);
-        toast.success('Recipe saved', {
-          description: 'Recipe added to your saved recipes.',
-        });
+        const success = await saveRecipe(recipe.id);
+        if (success) {
+          setIsSaved(true);
+        }
       }
       onSaveToggle?.();
-    } catch (error) {
-      toast.error('Error', {
-        description: 'Failed to update recipe. Please try again.',
-      });
-      console.error("Failed to save", error);
     } finally {
       setIsLoading(false);
     }
