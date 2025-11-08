@@ -13,8 +13,8 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
   const maxPrepTime = req.query.maxPrepTime ? parseInt(req.query.maxPrepTime as string) : 1000000000;
 
 
-  // if (!main_query)
-  //   return res.status(400).end("query is missing");
+  if (!main_query)
+     return res.status(400).end("query is missing");
   try{
     let sql_query = 
     `
@@ -54,7 +54,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     spoonacular_url.searchParams.append("offset", (limit * page).toString());
     if (cuisine) spoonacular_url.searchParams.append("cuisine", cuisine);
     if (diet) spoonacular_url.searchParams.append("diet", diet);
-    spoonacular_url.searchParams.append("maxPrepTime", maxPrepTime.toString());
+    spoonacular_url.searchParams.append("maxReadyTime", maxPrepTime.toString());
     spoonacular_url.searchParams.append("apiKey", process.env.API_KEY as string);
 
     let preference_result = await pool.query('SELECT * FROM user_preferences WHERE user_id = $1 LIMIT 1;', [req.session.userId]);
@@ -189,7 +189,7 @@ export async function saveRecipe(req: Request, res: Response, next: NextFunction
 
 export async function getSavedRecipes(req: Request, res: Response, next: NextFunction) {
   const page = req.query.page ? parseInt(req.query.page as string) : 0;
-  const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
   try {
     const result = await pool.query(
       `SELECT r.*

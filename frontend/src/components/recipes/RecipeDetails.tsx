@@ -8,8 +8,6 @@ import { Clock, Users, ChefHat, Heart, ArrowLeft, Leaf, Box } from "lucide-react
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
-import { saveRecipeAPI, unsaveRecipeAPI } from "@/lib/api/recipes";
 import { useRecipes } from "@/lib/hooks/useRecipes";
 
 interface RecipeDetailProps {
@@ -40,16 +38,16 @@ export default function RecipeDetails({ recipe }: RecipeDetailProps) {
     setIsLoading(true);
     try {
       if (isSaved) {
-        await unsaveRecipeAPI(recipe.id);
-        setIsSaved(false);
-        toast.success("Recipe removed from saved recipes");
+        const success = await unsaveRecipe(recipe.id);
+        if(success) {
+          setIsSaved(false);
+        }
       } else {
-        await saveRecipeAPI(recipe.id);
-        setIsSaved(true);
-        toast.success("Recipe saved to your collection");
+        const success = await saveRecipe(recipe.id);
+        if(success) {
+          setIsSaved(true);
+        }
       }
-    } catch (error) {
-      toast.error("Failed to update recipe");
     } finally {
       setIsLoading(false);
     }

@@ -37,7 +37,7 @@ export default function NavBar() {
   const navLinks = [
     { href: "/recipes", label: "Recipes", icon: Search },
     { href: "/meal-plans", label: "Meal Plans", icon: Calendar },
-    { href: "/recipes/saved", label: "Saved", icon: ChefHat },
+    { href: "/saved", label: "Saved", icon: ChefHat },
   ];
 
   const isActive = (path: string) => pathname?.startsWith(path);
