@@ -170,7 +170,7 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
     const recipe_id =   req.params.id;
-    await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, '$2');", [req.session.userId, recipe_id]);
+    await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2::text);", [req.session.userId, recipe_id]);
     const recipe = await pool.query("UPDATE recipes SET persistent = TRUE WHERE id = $1::text RETURNING *;", [recipe_id]);
 
     // ensure that the recipe is cached
@@ -236,7 +236,7 @@ export async function postReview(req: Request, res: Response, next: NextFunction
   const comment = req.body.comment as string;
   const recipe_id = req.params.id;
   try {
-    await pool.query("INSERT INTO reviews (user_id, recipe_id, rating, comment) VALUES ($1, $2, $3, $4);", [req.session.userId, recipe_id, rating, comment]);
+    await pool.query("INSERT INTO reviews (user_id, recipe_id, rating, comment) VALUES ($1, $2::text, $3, $4);", [req.session.userId, recipe_id, rating, comment]);
 
     // update average rating, persistence and make sure recipe is cached
     const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text),persistent = TRUE WHERE id = $1::text RETURNING *;", [recipe_id]);
