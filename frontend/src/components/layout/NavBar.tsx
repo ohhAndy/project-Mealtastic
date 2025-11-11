@@ -44,7 +44,7 @@ export default function NavBar() {
   const isActive = (path: string) => pathname?.startsWith(path);
 
   return (
-    <nav className="border-b bg-green-700 sticky top-0 z-50">
+    <nav className="border-b bg-green-700 sticky top-0 z-50 hidden md:block">
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
