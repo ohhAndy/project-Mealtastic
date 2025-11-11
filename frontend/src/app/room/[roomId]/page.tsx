@@ -1,0 +1,344 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function RoomPage() {
+  const params = useParams();
+  const router = useRouter();
+  const { roomId } = params;
+  const [peerId, setPeerId] = useState<string | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteIds, setRemoteIds] = useState<string[]>([]);
+  const [chatHistory, setChatHistory] = useState<
+    { from: string; content: string; timestamp?: string }[]
+  >([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isOwner, setIsOwner] = useState(false);
+
+  const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
+  const pollingAbort = useRef<AbortController | null>(null);
+
+  // Join the room
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`/api/rooms/${roomId}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPeerId(data.newPeer.id);
+        setIsOwner(data.isOwner);
+        await fetchMessages();
+        await initMedia();
+
+        for (const other of data.otherPeers) {
+          console.log(other);
+          createPeerConnection(other.id, true);
+        }
+      } else {
+        alert(await res.text());
+      }
+    })();
+  }, [roomId]);
+
+  async function initMedia() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      setLocalStream(stream);
+      const video = document.getElementById("localVideo") as HTMLVideoElement;
+      if (video) video.srcObject = stream;
+    } catch (err) {
+      console.warn("User denied camera/mic:", err);
+      setLocalStream(null);
+    }
+  }
+
+  async function fetchMessages() {
+    const res = await fetch(`/api/rooms/${roomId}/messages`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+    setChatHistory(data);
+  }
+
+  // Long-poll
+  useEffect(() => {
+    if (!peerId) return;
+    let stopped = false;
+    async function poll() {
+      if (stopped) return;
+      pollingAbort.current = new AbortController();
+      try {
+        const res = await fetch(`/api/rooms/${roomId}/poll/`, {
+          signal: pollingAbort.current.signal,
+          credentials: "include",
+        });
+        const msg = await res.json();
+        handleSignal(msg);
+      } catch {
+        if (!stopped) await new Promise((r) => setTimeout(r, 1000));
+      } finally {
+        if (!stopped) poll();
+      }
+    }
+    poll();
+    return () => {
+      stopped = true;
+      pollingAbort.current?.abort();
+    };
+  }, [peerId]);
+
+  // Handle backend messages
+  function handleSignal(msg: any) {
+    if (!msg || !msg.type) return;
+    switch (msg.type) {
+      case "offer":
+        handleOffer(msg);
+        break;
+      case "answer":
+        handleAnswer(msg);
+        break;
+      case "ice":
+        handleIce(msg);
+        break;
+      case "peer-joined":
+        if (msg.from !== peerId) {
+          console.log("New peer joined, sending offer to" + msg.from + "from" + peerId);
+          createPeerConnection(msg.from, true);
+        }
+        break;
+      case "peer-left":
+        removePeer(msg.from);
+        break;
+      case "chat":
+        setChatHistory((prev) => [...prev, msg]);
+        break;
+      case "room-deleted":
+        alert("This room was deleted by the owner.");
+        cleanupAndLeave();
+        router.push("/rooms");
+        break;
+    }
+  }
+
+  async function createPeerConnection(remoteId: string, initiator: boolean) {
+    if (peerConnections.current.has(remoteId)) return;
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    peerConnections.current.set(remoteId, pc);
+
+    const remoteStream = new MediaStream();
+    remoteStreams.current.set(remoteId, remoteStream);
+    pc.ontrack = (e) => {
+      e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
+      setRemoteIds((prev) => (prev.includes(remoteId) ? prev : [...prev, remoteId]));
+
+      const videoEl = document.getElementById(`remote-${remoteId}`) as HTMLVideoElement | null;
+      if (videoEl) videoEl.srcObject = remoteStream;
+    };
+    pc.onicecandidate = (e) => {
+      if (e.candidate)
+        sendSignal({ type: "ice", from: peerId, to: remoteId, data: e.candidate });
+    };
+    if (localStream) {
+      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    } else {
+      console.log("No local media — data-only connection");
+    }
+    if (initiator) {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      sendSignal({ type: "offer", from: peerId, to: remoteId, data: offer });
+    }
+  }
+
+  async function handleOffer(msg: any) {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    peerConnections.current.set(msg.from, pc);
+    const remoteStream = new MediaStream();
+    remoteStreams.current.set(msg.from, remoteStream);
+
+    pc.ontrack = (e) => {
+      e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
+      setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+
+      const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
+      if (videoEl) videoEl.srcObject = remoteStream;
+    };
+    pc.onicecandidate = (e) => {
+      if (e.candidate)
+        sendSignal({ type: "ice", from: peerId, to: msg.from, data: e.candidate });
+    };
+    if (localStream) {
+      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    } else {
+      console.log("No local media — data-only connection");
+    }
+
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    sendSignal({ type: "answer", from: peerId, to: msg.from, data: answer });
+  }
+
+  async function handleAnswer(msg: any) {
+    const pc = peerConnections.current.get(msg.from);
+    if (!pc) return;
+
+    if (pc.signalingState !== "have-local-offer") {
+      console.warn("Ignoring answer — unexpected state:", pc.signalingState);
+      return;
+    }
+
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+  }
+
+  async function handleIce(msg: any) {
+    const pc = peerConnections.current.get(msg.from);
+    if (pc) await pc.addIceCandidate(new RTCIceCandidate(msg.data));
+  }
+
+  function removePeer(id: string) {
+    peerConnections.current.get(id)?.close();
+    peerConnections.current.delete(id);
+    remoteStreams.current.delete(id);
+    setRemoteIds((p) => p.filter((r) => r !== id));
+  }
+
+  async function sendSignal(payload: any) {
+    await fetch(`/api/rooms/${roomId}/signal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "include",
+    });
+  }
+
+  async function sendChat() {
+    if (!chatInput.trim() || !peerId) return;
+    await fetch(`/api/rooms/${roomId}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from: peerId, content: chatInput }),
+      credentials: "include",
+    });
+    setChatInput("");
+  }
+
+  function cleanupAndLeave() {
+    pollingAbort.current?.abort();
+    pollingAbort.current = null;
+    peerConnections.current.forEach(pc => pc.close());
+    peerConnections.current.clear();
+    remoteStreams.current.clear();
+    localStream?.getTracks().forEach((t) => t.stop());
+    setRemoteIds([]);
+  }
+
+  async function handleLeaveRoom() {
+    if (!peerId) return;
+    await fetch(`/api/rooms/${roomId}/leave/${peerId}`, {
+      method: "POST",
+      credentials: "include",
+    });
+    cleanupAndLeave();
+    router.push("/room");
+  }
+
+  async function handleDeleteRoom() {
+    if (!confirm("Are you sure you want to delete this room?")) return;
+    await fetch(`/api/rooms/${roomId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    cleanupAndLeave();
+    router.push("/room");
+  }
+
+  useEffect(() => {
+    const leave = () => {
+      if (peerId) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerId}`);
+    };
+    window.addEventListener("beforeunload", leave);
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("beforeunload", leave);
+      window.removeEventListener("pagehide", leave);
+    };
+  }, [peerId, roomId]);
+
+  return (
+    <>
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] p-4 gap-4">
+        <Card className="flex-1">
+          <CardHeader className="flex justify-between items-center">
+            <CardTitle>Room: {roomId}</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleLeaveRoom}>Leave</Button>
+              {isOwner && (
+                <Button variant="destructive" onClick={handleDeleteRoom}>
+                  Delete
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <video id="localVideo" autoPlay playsInline muted className="w-full h-auto rounded-lg bg-black" />
+              {remoteIds.map((id) => (
+                <video
+                  key={id}
+                  id={`remote-${id}`}
+                  autoPlay
+                  playsInline
+                  ref={(el) => {
+                    if (el && remoteStreams.current.has(id)) {
+                      el.srcObject = remoteStreams.current.get(id)!;
+                    }
+                  }}
+                  className="w-full h-auto rounded-lg bg-black"
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="w-full md:w-80 flex flex-col">
+          <CardHeader>
+            <CardTitle>Chat</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col flex-1">
+            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50">
+              {chatHistory.map((msg, i) => (
+                <div key={i} className={`my-1 ${msg.from === peerId ? "text-right" : "text-left"}`}>
+                  <Label className="block text-xs text-gray-500">
+                    {msg.from === peerId ? "You" : msg.from}
+                  </Label>
+                  <span className="inline-block bg-white border rounded px-2 py-1 text-sm">
+                    {msg.content}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Type a message..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendChat()}
+              />
+              <Button onClick={sendChat}>Send</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}

@@ -5,13 +5,18 @@ import { createServer } from "http";
 import authRoutes from "./routes/authRoutes";
 import recipeRoutes from "./routes/recipesRoutes";
 import preferencesRoutes from "./routes/preferencesRoutes";
+import roomRoutes from "./routes/roomsRoutes";
 import dotenv from "dotenv";
 import cors from "cors";
+import longpoll from "express-longpoll";
+import { cleanupInactivePeers } from "./controllers/roomsController";
 
 dotenv.config();
 
 const PORT = 3001;
 const app = express();
+
+const longpollServer = longpoll(app);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -23,7 +28,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       maxAge: 1000 * 60 * 60 * 24,
-      sameSite: "none",
+      sameSite: "lax",
       secure: process.env.NODE_ENV == "prod", // sets the secure flag only with HTTPS in production
       httpOnly: true
     },
@@ -40,15 +45,25 @@ app.use(
   })
 );
 
+app.use((req, _res, next) => {
+  (req as any).longpoll = longpollServer;
+  next();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/preferences', preferencesRoutes);
+app.use('/api/rooms', roomRoutes);
 
 // development: use express to serve frontend files
 // production: use a dockerized nginx to serve frontend files
 if (process.env.NODE_ENV == "dev")
   app.use(express.static("../../frontend/src"));
+
+// setInterval(function() {
+//   cleanupInactivePeers(longpollServer, parseInt(process.env.THRESHOLD!));
+// }, 30000);
 
 export const server = createServer(app).listen(PORT, function () {
   console.log("HTTP server on http://localhost:%s", PORT);

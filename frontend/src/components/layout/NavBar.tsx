@@ -38,6 +38,7 @@ export default function NavBar() {
     { href: "/recipes", label: "Recipes", icon: Search },
     { href: "/meal-plans", label: "Meal Plans", icon: Calendar },
     { href: "/saved", label: "Saved", icon: ChefHat },
+    { href: "/room", label: "Cook Rooms", icon: ChefHat},
   ];
 
   const isActive = (path: string) => pathname?.startsWith(path);
