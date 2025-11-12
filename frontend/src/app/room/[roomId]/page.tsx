@@ -22,8 +22,7 @@ type SignalMessage =
       data: RTCSessionDescriptionInit;
     }
   | { type: "ice"; from: string; to: string; data: RTCIceCandidateInit }
-  | { type: "peer-left" | "room-deleted"; from: string }
-  | { type: "peer-joined"; from: string; to: string}
+  | { type: "peer-joined" | "peer-left" | "room-deleted"; from: string }
   | { type: "chat"; from: string; content: string; timestamp?: string };
 
 function ensurePeerId(id: string | null): string {
@@ -51,8 +50,6 @@ export default function RoomPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
   const localStreamRef = useRef<MediaStream | null>(null);
-  const peerIdRef = useRef<string | null>(null);
-  const pendingIce = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   const joined = useRef(false);
   // Join the room
@@ -71,12 +68,12 @@ export default function RoomPage() {
         setIsOwner(data.isOwner);
         await fetchMessages();
         await initMedia();
+        sendSignal({ type: "peer-joined", from: data.newPeer.id });
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
-            console.log(new Date().getMilliseconds() + ": Create peer connection from " + peerIdRef.current + " to " + other.id);
-            createPeerConnection(other.id, true);
-            sendSignal({ type: "peer-joined", to: other.id, from: data.newPeer.id });
+            console.log(new Date().getMilliseconds() + ": Create peer connection from " + data.newPeer.id + " to " + other.id);
+            createPeerConnection(other.id, false);
           }
         }
       } else {
@@ -139,8 +136,7 @@ export default function RoomPage() {
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
-    console.log("message type received ", msg.type);
-    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerIdRef.current) { console.log("rejected type: " + msg.type + " from: " + msg.from + " to: " + msg.to); return};
+    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice") && msg.to !== peerId) return;
     switch (msg.type) {
       case "offer":
         console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
@@ -170,7 +166,7 @@ export default function RoomPage() {
       case "room-deleted":
         alert("This room was deleted by the owner.");
         cleanupAndLeave();
-        router.push("/room");
+        router.push("/rooms");
         break;
     }
   }
@@ -222,8 +218,6 @@ export default function RoomPage() {
         data: offer,
       });
     }
-
-    await flushQueuedIceFor(remoteId);
   }
 
   async function handleOffer(msg: Extract<SignalMessage, { type: "offer" }>) {
@@ -262,8 +256,6 @@ export default function RoomPage() {
     }
 
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
-
-    await flushQueuedIceFor(msg.from);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     sendSignal({
@@ -284,37 +276,11 @@ export default function RoomPage() {
     }
 
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
-
-    await flushQueuedIceFor(msg.from);
   }
 
   async function handleIce(msg: Extract<SignalMessage, { type: "ice" }>) {
     const pc = peerConnections.current.get(msg.from);
-    const candidateInit = msg.data as RTCIceCandidateInit;
-
-    if (!pc) {
-      // No PC yet: queue ICE for when a PC is created
-      const q = pendingIce.current.get(msg.from) ?? [];
-      q.push(candidateInit);
-      pendingIce.current.set(msg.from, q);
-      console.log("Queued ICE for", msg.from, pendingIce.current.get(msg.from)?.length);
-      return;
-    }
-
-    // If remoteDescription not set yet, queue
-    if (!pc.remoteDescription || pc.remoteDescription.type === null) {
-      const q = pendingIce.current.get(msg.from) ?? [];
-      q.push(candidateInit);
-      pendingIce.current.set(msg.from, q);
-      console.log("Queued ICE (remoteDescription missing) for", msg.from);
-      return;
-    }
-
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidateInit));
-    } catch (e) {
-      console.warn("Failed to add ICE candidate for", msg.from, e);
-    }
+    if (pc) await pc.addIceCandidate(new RTCIceCandidate(msg.data));
   }
 
   function removePeer(id: string) {
@@ -322,18 +288,6 @@ export default function RoomPage() {
     peerConnections.current.delete(id);
     remoteStreams.current.delete(id);
     setRemoteIds((p) => p.filter((r) => r !== id));
-  }
-
-  async function flushQueuedIceFor(peerIdStr: string) {
-    const q = pendingIce.current.get(peerIdStr);
-    if (!q || q.length === 0) return;
-    const pc = peerConnections.current.get(peerIdStr);
-    if (!pc) return;
-    for (const c of q) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(c)); }
-      catch (e) { console.warn("Failed to add queued ICE", e); }
-    }
-    pendingIce.current.delete(peerIdStr);
   }
 
   async function sendSignal(payload: SignalMessage) {
