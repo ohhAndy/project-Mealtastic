@@ -73,7 +73,7 @@ export default function RoomPage() {
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
-            console.log(new Date().getMilliseconds() + ": Create peer connection from " + data.newPeer.id + " to " + other.id);
+            console.log(new Date().getMilliseconds() + ": Create peer connection from " + peerIdRef.current + " to " + other.id);
             createPeerConnection(other.id, true);
           }
         }
@@ -136,6 +136,7 @@ export default function RoomPage() {
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
+    console.log("message type received ", msg.type);
     if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerIdRef.current) return;
     switch (msg.type) {
       case "offer":
