@@ -90,6 +90,7 @@ export default function RoomPage() {
         credentials: "include",
       });
       const data = await res.json();
+      console.log(data);
       if (res.ok) {
         peerIdRef.current = data.newPeer.id;
         setPeerId(data.newPeer.id);
