@@ -88,7 +88,7 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
     const longpollServer = (req as any).longpoll;
     const route = `/api/rooms/${roomId}/poll`;
 
-    let payload =  to ? { from, to: to || "all", type, data} : { from, type, data };
+    let payload =  to && data ? { from, to: to || "all", type, data} : { from, type };
     longpollServer.publish(route, payload);
     return res.status(200).end();
   }

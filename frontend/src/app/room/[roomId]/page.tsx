@@ -68,7 +68,7 @@ export default function RoomPage() {
         setIsOwner(data.isOwner);
         await fetchMessages();
         await initMedia();
-        sendSignal({ type: "peer-joined", from: data.newPeer.id, data: null });
+        sendSignal({ type: "peer-joined", from: data.newPeer.id });
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
@@ -135,7 +135,7 @@ export default function RoomPage() {
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
-    if (msg.to && msg.to !== peerId && msg.to !== null) return;
+    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice") && msg.to !== peerId) return;
     switch (msg.type) {
       case "offer":
         console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
@@ -151,12 +151,12 @@ export default function RoomPage() {
         break;
       case "peer-joined":
         if (msg.from !== peerId) {
-          console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from + " to " + msg.to);
+          console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from);
           createPeerConnection(msg.from, true);
         }
         break;
       case "peer-left":
-        console.log(new Date().getMilliseconds() + ": peer-left from " + msg.from + " to " + msg.to);
+        console.log(new Date().getMilliseconds() + ": peer-left from " + msg.from);
         removePeer(msg.from);
         break;
       case "chat":
