@@ -34,7 +34,6 @@ export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
   const { roomId } = params;
-  const [peerId, setPeerId] = useState<string | null>(null);
   const [remoteIds, setRemoteIds] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<
     { from: string; content: string; timestamp?: string }[]
@@ -51,6 +50,7 @@ export default function RoomPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const peerIdRef = useRef<string | null>(null);
   const pendingIce = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   const joined = useRef(false);
@@ -66,7 +66,7 @@ export default function RoomPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setPeerId(data.newPeer.id);
+        peerIdRef.current = data.newPeer.id;
         setIsOwner(data.isOwner);
         await fetchMessages();
         await initMedia();
@@ -108,7 +108,7 @@ export default function RoomPage() {
 
   // Long-poll
   useEffect(() => {
-    if (!peerId) return;
+    if (!peerIdRef.current) return;
     let stopped = false;
     async function poll() {
       if (stopped) return;
@@ -131,12 +131,12 @@ export default function RoomPage() {
       stopped = true;
       pollingAbort.current?.abort();
     };
-  }, [peerId]);
+  }, [roomId]);
 
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
-    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerId) return;
+    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerIdRef.current) return;
     switch (msg.type) {
       case "offer":
         console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
@@ -151,7 +151,7 @@ export default function RoomPage() {
         handleIce(msg);
         break;
       case "peer-joined":
-        if (msg.from !== peerId) {
+        if (msg.from !== peerIdRef.current) {
           console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from);
           createPeerConnection(msg.from, false);
         }
@@ -192,7 +192,7 @@ export default function RoomPage() {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerId),
+          from: ensurePeerId(peerIdRef.current),
           to: remoteId,
           data: e.candidate,
         });
@@ -209,7 +209,7 @@ export default function RoomPage() {
       await pc.setLocalDescription(offer);
       sendSignal({
         type: "offer",
-        from: ensurePeerId(peerId),
+        from: ensurePeerId(peerIdRef.current),
         to: remoteId,
         data: offer,
       });
@@ -238,7 +238,7 @@ export default function RoomPage() {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerId),
+          from: ensurePeerId(peerIdRef.current),
           to: msg.from,
           data: e.candidate,
         });
@@ -256,7 +256,7 @@ export default function RoomPage() {
     await pc.setLocalDescription(answer);
     sendSignal({
       type: "answer",
-      from: ensurePeerId(peerId),
+      from: ensurePeerId(peerIdRef.current),
       to: msg.from,
       data: answer,
     });
@@ -334,11 +334,11 @@ export default function RoomPage() {
   }
 
   async function sendChat() {
-    if (!chatInput.trim() || !peerId) return;
+    if (!chatInput.trim() || !peerIdRef.current) return;
     await fetch(`/api/rooms/${roomId}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: peerId, content: chatInput }),
+      body: JSON.stringify({ from: peerIdRef.current, content: chatInput }),
       credentials: "include",
     });
     setChatInput("");
@@ -355,8 +355,8 @@ export default function RoomPage() {
   }
 
   async function handleLeaveRoom() {
-    if (!peerId) return;
-    await fetch(`/api/rooms/${roomId}/leave/${peerId}`, {
+    if (!peerIdRef.current) return;
+    await fetch(`/api/rooms/${roomId}/leave/${peerIdRef.current}`, {
       method: "POST",
       credentials: "include",
     });
@@ -376,7 +376,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     const leave = () => {
-      if (peerId) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerId}`);
+      if (peerIdRef.current) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerIdRef.current}`);
     };
     window.addEventListener("beforeunload", leave);
     window.addEventListener("pagehide", leave);
@@ -384,7 +384,7 @@ export default function RoomPage() {
       window.removeEventListener("beforeunload", leave);
       window.removeEventListener("pagehide", leave);
     };
-  }, [peerId, roomId]);
+  }, [roomId]);
 
   return (
     <>
@@ -440,11 +440,11 @@ export default function RoomPage() {
                 <div
                   key={i}
                   className={`my-1 ${
-                    msg.from === peerId ? "text-right" : "text-left"
+                    msg.from === peerIdRef.current ? "text-right" : "text-left"
                   }`}
                 >
                   <Label className="block text-xs text-gray-500">
-                    {msg.from === peerId ? "You" : msg.from}
+                    {msg.from === peerIdRef.current ? "You" : msg.from}
                   </Label>
                   <span className="inline-block bg-white border rounded px-2 py-1 text-sm">
                     {msg.content}
