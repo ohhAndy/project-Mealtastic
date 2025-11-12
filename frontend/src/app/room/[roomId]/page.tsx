@@ -12,7 +12,6 @@ export default function RoomPage() {
   const router = useRouter();
   const { roomId } = params;
   const [peerId, setPeerId] = useState<string | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteIds, setRemoteIds] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<
     { from: string; content: string; timestamp?: string }[]
@@ -23,9 +22,13 @@ export default function RoomPage() {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
 
+  const joined = useRef(false);
   // Join the room
   useEffect(() => {
+    if (joined.current) return; // Prevent duplicate run
+    joined.current = true;
     (async () => {
       const res = await fetch(`/api/rooms/${roomId}/join`, {
         method: "POST",
@@ -38,10 +41,13 @@ export default function RoomPage() {
         setIsOwner(data.isOwner);
         await fetchMessages();
         await initMedia();
+        sendSignal({ type: "peer-joined", from: data.newPeer.id, data: null });
 
         for (const other of data.otherPeers) {
-          console.log(other);
-          createPeerConnection(other.id, true);
+          if (other.id !== data.newPeer.id) {
+            console.log(new Date().getMilliseconds() + ": Create peer connection from " + data.newPeer.id + " to " + other.id);
+            createPeerConnection(other.id, false);
+          }
         }
       } else {
         alert(await res.text());
@@ -52,12 +58,12 @@ export default function RoomPage() {
   async function initMedia() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      setLocalStream(stream);
+      localStreamRef.current = stream;
       const video = document.getElementById("localVideo") as HTMLVideoElement;
       if (video) video.srcObject = stream;
     } catch (err) {
       console.warn("User denied camera/mic:", err);
-      setLocalStream(null);
+      localStreamRef.current = null;
     }
   }
 
@@ -99,23 +105,28 @@ export default function RoomPage() {
   // Handle backend messages
   function handleSignal(msg: any) {
     if (!msg || !msg.type) return;
+    if (msg.to && msg.to !== peerId && msg.to !== null) return;
     switch (msg.type) {
       case "offer":
+        console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
         handleOffer(msg);
         break;
       case "answer":
+        console.log(new Date().getMilliseconds() + ": Answer from " + msg.from + " to " + msg.to);
         handleAnswer(msg);
         break;
       case "ice":
+        console.log(new Date().getMilliseconds() + ": ICE from " + msg.from + " to " + msg.to);
         handleIce(msg);
         break;
       case "peer-joined":
         if (msg.from !== peerId) {
-          console.log("New peer joined, sending offer to" + msg.from + "from" + peerId);
+          console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from + " to " + msg.to);
           createPeerConnection(msg.from, true);
         }
         break;
       case "peer-left":
+        console.log(new Date().getMilliseconds() + ": peer-left from " + msg.from + " to " + msg.to);
         removePeer(msg.from);
         break;
       case "chat":
@@ -131,6 +142,7 @@ export default function RoomPage() {
 
   async function createPeerConnection(remoteId: string, initiator: boolean) {
     if (peerConnections.current.has(remoteId)) return;
+    const localStream = localStreamRef.current;
     const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
     peerConnections.current.set(remoteId, pc);
 
@@ -147,11 +159,13 @@ export default function RoomPage() {
       if (e.candidate)
         sendSignal({ type: "ice", from: peerId, to: remoteId, data: e.candidate });
     };
+
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
     } else {
       console.log("No local media — data-only connection");
     }
+
     if (initiator) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -164,6 +178,7 @@ export default function RoomPage() {
     peerConnections.current.set(msg.from, pc);
     const remoteStream = new MediaStream();
     remoteStreams.current.set(msg.from, remoteStream);
+    const localStream = localStreamRef.current;
 
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
@@ -238,7 +253,7 @@ export default function RoomPage() {
     peerConnections.current.forEach(pc => pc.close());
     peerConnections.current.clear();
     remoteStreams.current.clear();
-    localStream?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setRemoteIds([]);
   }
 

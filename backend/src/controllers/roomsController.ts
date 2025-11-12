@@ -11,11 +11,11 @@ async function getPeers(roomId: string) {
 export async function createRoom(req: Request, res: Response, next: NextFunction) {
   try {
     const longpollServer = (req as any).longpoll;
-    let result = await pool.query("SELECT * FROM rooms WHERE owner_id = $1", [req.session.userId]);
+    let result = await pool.query("SELECT * FROM rooms WHERE owner_id = $1;", [req.session.userId]);
     if (result.rows.length > 0) {
-      return res.status(403).end("Already owner of another room. Delete previous room before opening another.");
+      return res.status(403).end("Already owner of another room. Delete previous room before opening another.;");
     }
-    result = await pool.query("INSERT INTO rooms (owner_id) VALUES ($1) RETURNING *", [req.session.userId]);
+    result = await pool.query("INSERT INTO rooms (owner_id) VALUES ($1) RETURNING *;", [req.session.userId]);
     const route = `/api/rooms/${result.rows[0].id}/poll`;
     longpollServer.create(route);
     return res.json(result.rows[0]);
@@ -48,7 +48,7 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
     const roomId = req.params.roomId;
     const longpollServer = (req as any).longpoll;
 
-    let result = await pool.query("SELECT * FROM rooms WHERE id=$1", [roomId]);
+    let result = await pool.query("SELECT * FROM rooms WHERE id=$1;", [roomId]);
     if (result.rows.length < 1)
         return res.status(404).end("Room not found");
 
@@ -58,14 +58,14 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
 
     const isOwner = result.rows[0].owner_id === req.session.userId;
 
-    result = await pool.query("SELECT * FROM peers WHERE room_id = $1 AND user_id = $2", [roomId, req.session.userId])
+    result = await pool.query("SELECT * FROM peers WHERE room_id = $1 AND user_id = $2;", [roomId, req.session.userId])
     if (result.rows.length == 0) {
-      const name = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId])
-      result = await pool.query("INSERT INTO peers (room_id, user_id, username) VALUES ($1, $2, $3) RETURNING *", [roomId, req.session.userId, name.rows[0].name]);
+      const name = await pool.query("SELECT name FROM users WHERE id = $1;", [req.session.userId])
+      result = await pool.query("INSERT INTO peers (room_id, user_id, username) VALUES ($1, $2, $3) RETURNING *;", [roomId, req.session.userId, name.rows[0].name]);
     }
 
-    const route = `/api/rooms/${roomId}/poll`;
-    longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id });
+    // const route = `/api/rooms/${roomId}/poll`;
+    // longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id });
 
     return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner });
   }
@@ -88,7 +88,7 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
     const longpollServer = (req as any).longpoll;
     const route = `/api/rooms/${roomId}/poll`;
 
-    const payload = { from, to: to || "all", type, data};
+    let payload =  to ? { from, to: to || "all", type, data} : { from, type, data };
     longpollServer.publish(route, payload);
     return res.status(200).end();
   }

@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS peers (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   username TEXT NOT NULL,
   joined_at TIMESTAMPTZ DEFAULT NOW(),
-  last_seen TIMESTAMPTZ DEFAULT NOW()
+  last_seen TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_room_user UNIQUE (room_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS signals (
