@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ms } from "date-fns/locale";
 
 type SignalMessage =
   | {
@@ -139,7 +140,7 @@ export default function RoomPage() {
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
     console.log("message type received ", msg.type);
-    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerIdRef.current) return;
+    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice" || msg.type === "peer-joined") && msg.to !== peerIdRef.current) { console.log("rejected type: " + msg.type + " from: " + msg.from + " to: " + msg.to); return};
     switch (msg.type) {
       case "offer":
         console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
