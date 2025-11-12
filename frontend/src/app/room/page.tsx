@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Room {
   id: string;
@@ -17,8 +16,8 @@ interface Room {
 export default function RoomsPage() {
   const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ fetching, setFetching ] = useState(true);
 
   useEffect(() => {
     fetchRooms();
@@ -31,8 +30,7 @@ export default function RoomsPage() {
       if (res.ok) {
         setRooms(data);
         console.log("Fetched" + data);
-      }
-      else toast.error(data.error || "Failed to load rooms");
+      } else toast.error(data.error || "Failed to load rooms");
     } catch {
       toast.error("Server not reachable");
     }
@@ -49,7 +47,7 @@ export default function RoomsPage() {
       const data = await res.json();
       if (res.ok) {
         toast.success("Room created");
-        setRooms((prev: any) => [...prev, data]);
+        setRooms((prev) => [...prev, data]);
       } else toast.error(data.error || "Failed to create room");
     } catch {
       toast.error("Network error");
@@ -63,53 +61,71 @@ export default function RoomsPage() {
   }
 
   return (
-    <>
-      <div className="p-6 space-y-6">
-        <Card className="max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle>Create a Room</CardTitle>
-          </CardHeader>
-          <CardContent className="flex justify-between items-center gap-2">
-            <Button disabled={loading} onClick={handleCreateRoom}>
-              {loading ? "Creating..." : "Create Room"}
-            </Button>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-linear-to-b from-slate-50 to-slate-100 p-8">
+      <div className="max-w-5xl mx-auto space-y-10">
+        {/* Hero section */}
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl font-bold tracking-tight text-slate-800">
+            🍳 Discover Cooking Rooms
+          </h1>
+          <p className="text-slate-600 max-w-md mx-auto">
+            Join a live cooking session, share your favorite recipes, or start
+            your own room to host a cooking stream with friends.
+          </p>
+          <Button
+            disabled={loading}
+            onClick={handleCreateRoom}
+            className="mt-3 bg-orange-500 hover:bg-orange-600 text-white"
+          >
+            {loading ? "Creating..." : "Create a Room"}
+          </Button>
+        </div>
 
-        <Card className="max-w-md mx-auto">
+        {/* Rooms list */}
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Set Display Name</CardTitle>
+            <CardTitle className="text-xl font-semibold">
+              Available Rooms
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Label>Display Name</Label>
-            <Input
-              placeholder="e.g. Jean Luc"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Rooms</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {rooms.length === 0 ? (
-              <p className="text-gray-500 text-sm">No rooms available.</p>
+            {fetching ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="text-center py-10 text-slate-500">
+                <p className="text-sm">No rooms are live right now.</p>
+                <p className="text-sm mt-1">
+                  Be the first to{" "}
+                  <span className="font-medium text-orange-600">
+                    start one!
+                  </span>
+                </p>
+              </div>
             ) : (
-              <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                 {rooms.map((room) => (
                   <Card
                     key={room.id}
-                    className="border shadow-sm hover:shadow-md transition"
+                    className="border shadow-sm hover:shadow-md transition rounded-xl"
                   >
                     <CardHeader>
-                      <CardTitle>Room #{room.id}</CardTitle>
+                      <CardTitle className="text-lg text-slate-700">
+                        Room #{room.id.slice(0, 6)}
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">
+                        Hosted by {room.owner_id || "Anonymous"}
+                      </p>
                     </CardHeader>
                     <CardContent className="flex justify-end">
-                      <Button onClick={() => handleJoinRoom(room.id)}>
-                        Join
+                      <Button
+                        variant="outline"
+                        onClick={() => handleJoinRoom(room.id)}
+                      >
+                        Join Room
                       </Button>
                     </CardContent>
                   </Card>
@@ -119,6 +135,6 @@ export default function RoomsPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

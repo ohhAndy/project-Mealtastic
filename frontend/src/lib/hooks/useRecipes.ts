@@ -120,7 +120,6 @@ export function useRecipes() {
       setError(null);
       try {
         const data = await getSavedRecipesAPI(params);
-        console.log(params);
         setRecipes(Array.isArray(data) ? data : []);
         return data;
       } catch (err) {
