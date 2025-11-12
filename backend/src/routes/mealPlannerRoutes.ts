@@ -1,19 +1,19 @@
 import { Router } from "express";
-import {
-  getWeeklyMealPlan,
-  saveWeeklyMealPlan,
-  deleteMealPlan,
-} from "../controllers/mealPlannerController";
+import { isAuthenticated } from "../middlewares/auth";
+import * as mealPlannerCtrl from "../controllers/mealPlannerController";
 
 const router = Router();
 
-// GET the user's weekly plan
-router.get("/", getWeeklyMealPlan);
+// POST /api/meal-planner/generate
+router.post('/generate', isAuthenticated, mealPlannerCtrl.generateWeeklyMealPlan);
 
-// POST or update a plan for the week
-router.post("/", saveWeeklyMealPlan);
+// GET /api/meal-planner
+router.get('/', isAuthenticated, mealPlannerCtrl.getMealPlan);
 
-// DELETE a full week's plan
-router.delete("/:weekStart", deleteMealPlan);
+// PATCH /api/meal-planner/entry/:id
+router.patch('/entry/:id', isAuthenticated, mealPlannerCtrl.updateMealPlanEntry);
+
+// DELETE /api/meal-planner/:id
+router.delete('/:id', isAuthenticated, mealPlannerCtrl.deleteMealPlan);
 
 export default router;
