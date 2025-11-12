@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ms } from "date-fns/locale";
 
 type SignalMessage =
   | {
@@ -34,6 +33,7 @@ export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
   const { roomId } = params;
+  const [peerId, setPeerId] = useState<string | null>(null);
   const [remoteIds, setRemoteIds] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<
     { from: string; content: string; timestamp?: string }[]
@@ -64,7 +64,7 @@ export default function RoomPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        peerIdRef.current = data.newPeer.id;
+        setPeerId(data.newPeer.id);
         setIsOwner(data.isOwner);
         await fetchMessages();
         await initMedia();
@@ -107,8 +107,7 @@ export default function RoomPage() {
 
   // Long-poll
   useEffect(() => {
-    console.log("polling");
-    if (!peerIdRef.current) return;
+    if (!peerId) return;
     let stopped = false;
     async function poll() {
       if (stopped) return;
@@ -131,7 +130,7 @@ export default function RoomPage() {
       stopped = true;
       pollingAbort.current?.abort();
     };
-  });
+  }, [peerId]);
 
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
@@ -151,9 +150,9 @@ export default function RoomPage() {
         handleIce(msg);
         break;
       case "peer-joined":
-        if (msg.from !== peerIdRef.current) {
+        if (msg.from !== peerId) {
           console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from);
-          createPeerConnection(msg.from, false);
+          createPeerConnection(msg.from, true);
         }
         break;
       case "peer-left":
@@ -183,20 +182,16 @@ export default function RoomPage() {
     remoteStreams.current.set(remoteId, remoteStream);
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) =>
-        prev.includes(remoteId) ? prev : [...prev, remoteId]
-      );
+      setRemoteIds((prev) => (prev.includes(remoteId) ? prev : [...prev, remoteId]));
 
-      const videoEl = document.getElementById(
-        `remote-${remoteId}`
-      ) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(`remote-${remoteId}`) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerIdRef.current),
+          from: ensurePeerId(peerId),
           to: remoteId,
           data: e.candidate,
         });
@@ -213,7 +208,7 @@ export default function RoomPage() {
       await pc.setLocalDescription(offer);
       sendSignal({
         type: "offer",
-        from: ensurePeerId(peerIdRef.current),
+        from: ensurePeerId(peerId),
         to: remoteId,
         data: offer,
       });
@@ -231,20 +226,16 @@ export default function RoomPage() {
 
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) =>
-        prev.includes(msg.from) ? prev : [...prev, msg.from]
-      );
+      setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
 
-      const videoEl = document.getElementById(
-        `remote-${msg.from}`
-      ) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerIdRef.current),
+          from: ensurePeerId(peerId),
           to: msg.from,
           data: e.candidate,
         });
@@ -260,7 +251,7 @@ export default function RoomPage() {
     await pc.setLocalDescription(answer);
     sendSignal({
       type: "answer",
-      from: ensurePeerId(peerIdRef.current),
+      from: ensurePeerId(peerId),
       to: msg.from,
       data: answer,
     });
@@ -300,11 +291,11 @@ export default function RoomPage() {
   }
 
   async function sendChat() {
-    if (!chatInput.trim() || !peerIdRef.current) return;
+    if (!chatInput.trim() || !peerId) return;
     await fetch(`/api/rooms/${roomId}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: peerIdRef.current, content: chatInput }),
+      body: JSON.stringify({ from: peerId, content: chatInput }),
       credentials: "include",
     });
     setChatInput("");
@@ -321,8 +312,8 @@ export default function RoomPage() {
   }
 
   async function handleLeaveRoom() {
-    if (!peerIdRef.current) return;
-    await fetch(`/api/rooms/${roomId}/leave/${peerIdRef.current}`, {
+    if (!peerId) return;
+    await fetch(`/api/rooms/${roomId}/leave/${peerId}`, {
       method: "POST",
       credentials: "include",
     });
@@ -342,7 +333,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     const leave = () => {
-      if (peerIdRef.current) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerIdRef.current}`);
+      if (peerId) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerId}`);
     };
     window.addEventListener("beforeunload", leave);
     window.addEventListener("pagehide", leave);
@@ -350,7 +341,7 @@ export default function RoomPage() {
       window.removeEventListener("beforeunload", leave);
       window.removeEventListener("pagehide", leave);
     };
-  }, [roomId]);
+  }, [peerId, roomId]);
 
   return (
     <>
@@ -401,16 +392,16 @@ export default function RoomPage() {
             <CardTitle>Chat</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 max-h-96 wrap-break-word">
+            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 wrap-break-word">
               {chatHistory.map((msg, i) => (
                 <div
                   key={i}
                   className={`my-1 ${
-                    msg.from === peerIdRef.current ? "text-right" : "text-left"
+                    msg.from === peerId ? "text-right" : "text-left"
                   }`}
                 >
                   <Label className="block text-xs text-gray-500">
-                    {msg.from === peerIdRef.current ? "You" : msg.from}
+                    {msg.from === peerId ? "You" : msg.from}
                   </Label>
                   <span className="inline-block bg-white border rounded px-2 py-1 text-sm">
                     {msg.content}

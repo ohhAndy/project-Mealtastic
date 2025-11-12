@@ -82,11 +82,7 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
     }
 
     // const route = `/api/rooms/${roomId}/poll`;
-    // for (let peer of peers) {
-    //   if (result.rows[0].id !== peer.id) {
-    //     longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id, to: peer.id });
-    //   }
-    // }
+    // longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id });
 
     return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner });
   }
