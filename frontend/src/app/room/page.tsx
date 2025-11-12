@@ -34,6 +34,9 @@ export default function RoomsPage() {
     } catch {
       toast.error("Server not reachable");
     }
+    finally {
+      setFetching(false)
+    }
   }
 
   async function handleCreateRoom() {
