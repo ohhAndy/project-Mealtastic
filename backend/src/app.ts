@@ -5,6 +5,7 @@ import { createServer } from "http";
 import authRoutes from "./routes/authRoutes";
 import recipeRoutes from "./routes/recipesRoutes";
 import mealPlannerRoutes from "./routes/mealPlannerRoutes"; // planner
+import shoppingListRoutes from "./routes/shoppingListRoutes";
 import dotenv from "dotenv";
 import cors from "cors";
 
@@ -40,6 +41,7 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use("/api/meal-planner", mealPlannerRoutes); //
+app.use("/api/shopping-list", shoppingListRoutes);
 
 // development: use express to serve frontend files
 // production: use a dockerized nginx to serve frontend files
