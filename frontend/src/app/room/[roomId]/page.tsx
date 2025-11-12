@@ -1,11 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+type SignalMessage =
+  | {
+      type: "offer";
+      from: string;
+      to: string;
+      data: RTCSessionDescriptionInit;
+    }
+  | {
+      type: "answer";
+      from: string;
+      to: string;
+      data: RTCSessionDescriptionInit;
+    }
+  | { type: "ice"; from: string; to: string; data: RTCIceCandidateInit }
+  | { type: "peer-joined" | "peer-left" | "room-deleted"; from: string }
+  | { type: "chat"; from: string; content: string; timestamp?: string };
+
+function ensurePeerId(id: string | null): string {
+  if (!id) throw new Error("Peer ID not initialized yet");
+  return id;
+}
 
 export default function RoomPage() {
   const params = useParams();
@@ -23,6 +45,11 @@ export default function RoomPage() {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
+
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory]);
 
   // Join the room
   useEffect(() => {
@@ -51,7 +78,10 @@ export default function RoomPage() {
 
   async function initMedia() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
       setLocalStream(stream);
       const video = document.getElementById("localVideo") as HTMLVideoElement;
       if (video) video.srcObject = stream;
@@ -97,7 +127,7 @@ export default function RoomPage() {
   }, [peerId]);
 
   // Handle backend messages
-  function handleSignal(msg: any) {
+  function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
     switch (msg.type) {
       case "offer":
@@ -111,7 +141,9 @@ export default function RoomPage() {
         break;
       case "peer-joined":
         if (msg.from !== peerId) {
-          console.log("New peer joined, sending offer to" + msg.from + "from" + peerId);
+          console.log(
+            "New peer joined, sending offer to" + msg.from + "from" + peerId
+          );
           createPeerConnection(msg.from, true);
         }
         break;
@@ -131,21 +163,32 @@ export default function RoomPage() {
 
   async function createPeerConnection(remoteId: string, initiator: boolean) {
     if (peerConnections.current.has(remoteId)) return;
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
     peerConnections.current.set(remoteId, pc);
 
     const remoteStream = new MediaStream();
     remoteStreams.current.set(remoteId, remoteStream);
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(remoteId) ? prev : [...prev, remoteId]));
+      setRemoteIds((prev) =>
+        prev.includes(remoteId) ? prev : [...prev, remoteId]
+      );
 
-      const videoEl = document.getElementById(`remote-${remoteId}`) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(
+        `remote-${remoteId}`
+      ) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
       if (e.candidate)
-        sendSignal({ type: "ice", from: peerId, to: remoteId, data: e.candidate });
+        sendSignal({
+          type: "ice",
+          from: ensurePeerId(peerId),
+          to: remoteId,
+          data: e.candidate,
+        });
     };
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
@@ -155,26 +198,42 @@ export default function RoomPage() {
     if (initiator) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      sendSignal({ type: "offer", from: peerId, to: remoteId, data: offer });
+      sendSignal({
+        type: "offer",
+        from: ensurePeerId(peerId),
+        to: remoteId,
+        data: offer,
+      });
     }
   }
 
-  async function handleOffer(msg: any) {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+  async function handleOffer(msg: Extract<SignalMessage, { type: "offer" }>) {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
     peerConnections.current.set(msg.from, pc);
     const remoteStream = new MediaStream();
     remoteStreams.current.set(msg.from, remoteStream);
 
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+      setRemoteIds((prev) =>
+        prev.includes(msg.from) ? prev : [...prev, msg.from]
+      );
 
-      const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(
+        `remote-${msg.from}`
+      ) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
       if (e.candidate)
-        sendSignal({ type: "ice", from: peerId, to: msg.from, data: e.candidate });
+        sendSignal({
+          type: "ice",
+          from: ensurePeerId(peerId),
+          to: msg.from,
+          data: e.candidate,
+        });
     };
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
@@ -185,10 +244,15 @@ export default function RoomPage() {
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    sendSignal({ type: "answer", from: peerId, to: msg.from, data: answer });
+    sendSignal({
+      type: "answer",
+      from: ensurePeerId(peerId),
+      to: msg.from,
+      data: answer,
+    });
   }
 
-  async function handleAnswer(msg: any) {
+  async function handleAnswer(msg: Extract<SignalMessage, { type: "answer" }>) {
     const pc = peerConnections.current.get(msg.from);
     if (!pc) return;
 
@@ -200,7 +264,7 @@ export default function RoomPage() {
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
   }
 
-  async function handleIce(msg: any) {
+  async function handleIce(msg: Extract<SignalMessage, { type: "ice" }>) {
     const pc = peerConnections.current.get(msg.from);
     if (pc) await pc.addIceCandidate(new RTCIceCandidate(msg.data));
   }
@@ -212,7 +276,7 @@ export default function RoomPage() {
     setRemoteIds((p) => p.filter((r) => r !== id));
   }
 
-  async function sendSignal(payload: any) {
+  async function sendSignal(payload: SignalMessage) {
     await fetch(`/api/rooms/${roomId}/signal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -235,7 +299,7 @@ export default function RoomPage() {
   function cleanupAndLeave() {
     pollingAbort.current?.abort();
     pollingAbort.current = null;
-    peerConnections.current.forEach(pc => pc.close());
+    peerConnections.current.forEach((pc) => pc.close());
     peerConnections.current.clear();
     remoteStreams.current.clear();
     localStream?.getTracks().forEach((t) => t.stop());
@@ -281,7 +345,9 @@ export default function RoomPage() {
           <CardHeader className="flex justify-between items-center">
             <CardTitle>Room: {roomId}</CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={handleLeaveRoom}>Leave</Button>
+              <Button variant="outline" onClick={handleLeaveRoom}>
+                Leave
+              </Button>
               {isOwner && (
                 <Button variant="destructive" onClick={handleDeleteRoom}>
                   Delete
@@ -291,7 +357,13 @@ export default function RoomPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              <video id="localVideo" autoPlay playsInline muted className="w-full h-auto rounded-lg bg-black" />
+              <video
+                id="localVideo"
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-auto rounded-lg bg-black"
+              />
               {remoteIds.map((id) => (
                 <video
                   key={id}
@@ -315,9 +387,14 @@ export default function RoomPage() {
             <CardTitle>Chat</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50">
+            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 max-h-96 wrap-break-word">
               {chatHistory.map((msg, i) => (
-                <div key={i} className={`my-1 ${msg.from === peerId ? "text-right" : "text-left"}`}>
+                <div
+                  key={i}
+                  className={`my-1 ${
+                    msg.from === peerId ? "text-right" : "text-left"
+                  }`}
+                >
                   <Label className="block text-xs text-gray-500">
                     {msg.from === peerId ? "You" : msg.from}
                   </Label>
@@ -326,6 +403,8 @@ export default function RoomPage() {
                   </span>
                 </div>
               ))}
+
+              <div ref={chatEndRef} />
             </div>
             <div className="flex gap-2">
               <Input
