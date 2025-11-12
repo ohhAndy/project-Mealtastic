@@ -29,6 +29,40 @@ function ensurePeerId(id: string | null): string {
   return id;
 }
 
+function logPeerState(peerId: string, pc: RTCPeerConnection) {
+  pc.onconnectionstatechange = () => {
+    console.log(
+      `[${peerId}] connectionState →`,
+      pc.connectionState
+    );
+  };
+
+  pc.onsignalingstatechange = () => {
+    console.log(
+      `[${peerId}] signalingState →`,
+      pc.signalingState
+    );
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    console.log(
+      `[${peerId}] iceConnectionState →`,
+      pc.iceConnectionState
+    );
+  };
+
+  pc.onicegatheringstatechange = () => {
+    console.log(
+      `[${peerId}] iceGatheringState →`,
+      pc.iceGatheringState
+    );
+  };
+
+  pc.onicecandidateerror = (e) => {
+    console.warn(`[${peerId}] ICE candidate error:`, e);
+  };
+}
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -165,7 +199,7 @@ export default function RoomPage() {
       case "room-deleted":
         alert("This room was deleted by the owner.");
         cleanupAndLeave();
-        router.push("/rooms");
+        router.push("/room");
         break;
     }
   }
@@ -176,6 +210,7 @@ export default function RoomPage() {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
+    logPeerState(remoteId, pc);
     peerConnections.current.set(remoteId, pc);
 
     const remoteStream = new MediaStream();
@@ -219,6 +254,7 @@ export default function RoomPage() {
     const pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
+    logPeerState(msg.from, pc);
     peerConnections.current.set(msg.from, pc);
     const remoteStream = new MediaStream();
     remoteStreams.current.set(msg.from, remoteStream);
