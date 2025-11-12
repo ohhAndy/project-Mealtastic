@@ -17,7 +17,8 @@ type SignalMessage =
       data: RTCSessionDescriptionInit;
     }
   | { type: "ice"; from: string; to: string; data: RTCIceCandidateInit }
-  | { type: "peer-joined" | "peer-left" | "room-deleted"; from: string }
+  | { type: "peer-left" | "room-deleted"; from: string }
+  | { type: "peer-joined"; from: string; to: string}
   | { type: "chat"; from: string; content: string; timestamp?: string };
 
 async function getPeers(roomId: string) {
@@ -106,8 +107,10 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
     const route = `/api/rooms/${roomId}/poll`;
 
     let payload = {} as SignalMessage;
-    if (type === "peer-joined" || type === "peer-left" || type === "room-deleted")
+    if (type === "peer-left" || type === "room-deleted")
       payload = { type: type, from: from }
+    else if (type === "peer-joined")
+      payload = { type: type, from: from, to: to }
     else
       payload = { type: type, from: from, to: to, data: data}
 
