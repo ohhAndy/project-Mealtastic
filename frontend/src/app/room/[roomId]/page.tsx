@@ -90,7 +90,6 @@ export default function RoomPage() {
         credentials: "include",
       });
       const data = await res.json();
-      console.log(data);
       if (res.ok) {
         peerIdRef.current = data.newPeer.id;
         setPeerId(data.newPeer.id);
@@ -108,7 +107,7 @@ export default function RoomPage() {
                 " to " +
                 other.id
             );
-            createPeerConnection(other.id, false);
+            createPeerConnection(other.id, true);
           }
         }
       } else {
@@ -171,7 +170,7 @@ export default function RoomPage() {
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
     if (
-      (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") &&
+      (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") && msg.to &&
       msg.to !== peerId
     )
       return;
@@ -211,7 +210,6 @@ export default function RoomPage() {
           console.log(
             new Date().getMilliseconds() + ": peer-joined from " + msg.from
           );
-          createPeerConnection(msg.from, true);
         }
         break;
       case "peer-left":
@@ -239,6 +237,11 @@ export default function RoomPage() {
     });
     logPeerState(remoteId, pc);
     peerConnections.current.set(remoteId, pc);
+
+    if(!localStream) {
+      pc.addTransceiver("video", { direction: "recvonly" });
+      pc.addTransceiver("audio", { direction: "recvonly" });
+    }
 
     const remoteStream = new MediaStream();
     remoteStreams.current.set(remoteId, remoteStream);
@@ -299,6 +302,11 @@ export default function RoomPage() {
       const remoteStream = new MediaStream();
       remoteStreams.current.set(msg.from, remoteStream);
       const localStream = localStreamRef.current;
+
+      if(!localStream) {
+        newPc.addTransceiver("video", { direction: "recvonly" });
+        newPc.addTransceiver("audio", { direction: "recvonly" });
+      }
 
       newPc.ontrack = (e) => {
         e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
