@@ -3,6 +3,23 @@ import pool from "../db";
 import { DatabaseError, Result } from "pg";
 import longpoll from "express-longpoll";
 
+type SignalMessage =
+  | {
+      type: "offer";
+      from: string;
+      to: string;
+      data: RTCSessionDescriptionInit;
+    }
+  | {
+      type: "answer";
+      from: string;
+      to: string;
+      data: RTCSessionDescriptionInit;
+    }
+  | { type: "ice"; from: string; to: string; data: RTCIceCandidateInit }
+  | { type: "peer-joined" | "peer-left" | "room-deleted"; from: string }
+  | { type: "chat"; from: string; content: string; timestamp?: string };
+
 async function getPeers(roomId: string) {
   const result = await pool.query("SELECT * FROM peers WHERE room_id = $1", [roomId]);
   return result.rows;
@@ -88,7 +105,12 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
     const longpollServer = (req as any).longpoll;
     const route = `/api/rooms/${roomId}/poll`;
 
-    let payload =  to && data ? { from, to: to || "all", type, data} : { from, type };
+    let payload = {} as SignalMessage;
+    if (type === "peer-joined" || type === "peer-left" || type === "room-deleted")
+      payload = { type: type, from: from }
+    else
+      payload = { type: type, from: from, to: to, data: data}
+
     longpollServer.publish(route, payload);
     return res.status(200).end();
   }
