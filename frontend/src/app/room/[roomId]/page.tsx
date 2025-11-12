@@ -109,6 +109,7 @@ export default function RoomPage() {
 
   // Long-poll
   useEffect(() => {
+    console.log("polling");
     if (!peerIdRef.current) return;
     let stopped = false;
     async function poll() {
@@ -132,7 +133,7 @@ export default function RoomPage() {
       stopped = true;
       pollingAbort.current?.abort();
     };
-  }, [roomId]);
+  });
 
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
