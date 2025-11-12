@@ -31,31 +31,19 @@ function ensurePeerId(id: string | null): string {
 
 function logPeerState(peerId: string, pc: RTCPeerConnection) {
   pc.onconnectionstatechange = () => {
-    console.log(
-      `[${peerId}] connectionState →`,
-      pc.connectionState
-    );
+    console.log(`[${peerId}] connectionState →`, pc.connectionState);
   };
 
   pc.onsignalingstatechange = () => {
-    console.log(
-      `[${peerId}] signalingState →`,
-      pc.signalingState
-    );
+    console.log(`[${peerId}] signalingState →`, pc.signalingState);
   };
 
   pc.oniceconnectionstatechange = () => {
-    console.log(
-      `[${peerId}] iceConnectionState →`,
-      pc.iceConnectionState
-    );
+    console.log(`[${peerId}] iceConnectionState →`, pc.iceConnectionState);
   };
 
   pc.onicegatheringstatechange = () => {
-    console.log(
-      `[${peerId}] iceGatheringState →`,
-      pc.iceGatheringState
-    );
+    console.log(`[${peerId}] iceGatheringState →`, pc.iceGatheringState);
   };
 
   pc.onicecandidateerror = (e) => {
@@ -79,7 +67,9 @@ export default function RoomPage() {
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
 
-  const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(
+    new Map()
+  );
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -110,7 +100,13 @@ export default function RoomPage() {
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
-            console.log(new Date().getMilliseconds() + ": Create peer connection from " + data.newPeer.id + " to " + other.id);
+            console.log(
+              new Date().getMilliseconds() +
+                ": Create peer connection from " +
+                data.newPeer.id +
+                " to " +
+                other.id
+            );
             createPeerConnection(other.id, false);
           }
         }
@@ -173,28 +169,54 @@ export default function RoomPage() {
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
-    if ((msg.type === "offer" || msg.type === "answer" || msg.type === "ice") && msg.to !== peerId) return;
+    if (
+      (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") &&
+      msg.to !== peerId
+    )
+      return;
     switch (msg.type) {
       case "offer":
-        console.log(new Date().getMilliseconds() + ": Offer from " + msg.from + " to " + msg.to);
+        console.log(
+          new Date().getMilliseconds() +
+            ": Offer from " +
+            msg.from +
+            " to " +
+            msg.to
+        );
         handleOffer(msg);
         break;
       case "answer":
-        console.log(new Date().getMilliseconds() + ": Answer from " + msg.from + " to " + msg.to);
+        console.log(
+          new Date().getMilliseconds() +
+            ": Answer from " +
+            msg.from +
+            " to " +
+            msg.to
+        );
         handleAnswer(msg);
         break;
       case "ice":
-        console.log(new Date().getMilliseconds() + ": ICE from " + msg.from + " to " + msg.to);
+        console.log(
+          new Date().getMilliseconds() +
+            ": ICE from " +
+            msg.from +
+            " to " +
+            msg.to
+        );
         handleIce(msg);
         break;
       case "peer-joined":
         if (msg.from !== peerId) {
-          console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from);
+          console.log(
+            new Date().getMilliseconds() + ": peer-joined from " + msg.from
+          );
           createPeerConnection(msg.from, true);
         }
         break;
       case "peer-left":
-        console.log(new Date().getMilliseconds() + ": peer-left from " + msg.from);
+        console.log(
+          new Date().getMilliseconds() + ": peer-left from " + msg.from
+        );
         removePeer(msg.from);
         break;
       case "chat":
@@ -221,28 +243,32 @@ export default function RoomPage() {
     remoteStreams.current.set(remoteId, remoteStream);
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(remoteId) ? prev : [...prev, remoteId]));
+      setRemoteIds((prev) =>
+        prev.includes(remoteId) ? prev : [...prev, remoteId]
+      );
 
-      const videoEl = document.getElementById(`remote-${remoteId}`) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(
+        `remote-${remoteId}`
+      ) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
-      if (e.candidate && pc.remoteDescription) {
-        sendSignal({
-          type: "ice",
-          from: ensurePeerId(peerIdRef.current),
-          to: remoteId,
-          data: e.candidate,
-        });
-      } else if (e.candidate) {
-        // queue locally if needed
-        console.log(`[${remoteId}] ICE generated before remoteDescription — skipping send`);
-      }
+      if (!e.candidate) return;
+      sendSignal({
+        type: "ice",
+        from: ensurePeerId(peerIdRef.current),
+        to: remoteId,
+        data: e.candidate,
+      });
     };
 
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
-      console.log(`[${ensurePeerId(peerIdRef.current)}] Added ${localStream.getTracks().length} tracks to connection -> ${remoteId}`);
+      console.log(
+        `[${ensurePeerId(peerIdRef.current)}] Added ${
+          localStream.getTracks().length
+        } tracks to connection -> ${remoteId}`
+      );
     } else {
       console.log("No local media — data-only connection");
     }
@@ -275,23 +301,24 @@ export default function RoomPage() {
 
       newPc.ontrack = (e) => {
         e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-        setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+        setRemoteIds((prev) =>
+          prev.includes(msg.from) ? prev : [...prev, msg.from]
+        );
 
-        const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
+        const videoEl = document.getElementById(
+          `remote-${msg.from}`
+        ) as HTMLVideoElement | null;
         if (videoEl) videoEl.srcObject = remoteStream;
       };
 
       newPc.onicecandidate = (e) => {
-        if (e.candidate && newPc.remoteDescription) {
-          sendSignal({
-            type: "ice",
-            from: ensurePeerId(peerIdRef.current),
-            to: msg.from,
-            data: e.candidate,
-          });
-        } else if (e.candidate) {
-          console.log(`[${msg.from}] ICE generated before remoteDescription — skipping send`);
-        }
+        if (!e.candidate) return;
+        sendSignal({
+          type: "ice",
+          from: ensurePeerId(peerIdRef.current),
+          to: msg.from,
+          data: e.candidate,
+        });
       };
       if (localStream) {
         localStream.getTracks().forEach((t) => newPc.addTrack(t, localStream));
@@ -306,12 +333,17 @@ export default function RoomPage() {
 
     const queued = pendingCandidates.current.get(msg.from);
     if (queued && queued.length) {
-      console.log(`[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (offer side)`);
+      console.log(
+        `[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (offer side)`
+      );
       for (const c of queued) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(c));
         } catch (err) {
-          console.warn(`[${msg.from}] Failed to add queued ICE candidate (offer side):`, err);
+          console.warn(
+            `[${msg.from}] Failed to add queued ICE candidate (offer side):`,
+            err
+          );
         }
       }
       pendingCandidates.current.delete(msg.from);
@@ -340,12 +372,17 @@ export default function RoomPage() {
 
     const queued = pendingCandidates.current.get(msg.from);
     if (queued && queued.length) {
-      console.log(`[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (answer side)`);
+      console.log(
+        `[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (answer side)`
+      );
       for (const c of queued) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(c));
         } catch (err) {
-          console.warn(`[${msg.from}] Failed to add queued ICE candidate (answer side):`, err);
+          console.warn(
+            `[${msg.from}] Failed to add queued ICE candidate (answer side):`,
+            err
+          );
         }
       }
       pendingCandidates.current.delete(msg.from);
@@ -355,16 +392,30 @@ export default function RoomPage() {
   async function handleIce(msg: Extract<SignalMessage, { type: "ice" }>) {
     const pc = peerConnections.current.get(msg.from);
     if (!pc) {
-      if (!pendingCandidates.current.has(msg.from)) pendingCandidates.current.set(msg.from, []);
+      if (!pendingCandidates.current.has(msg.from))
+        pendingCandidates.current.set(msg.from, []);
       pendingCandidates.current.get(msg.from)!.push(msg.data);
-      console.log(`[${msg.from}] Received ICE but no RTCPeerConnection exists yet — queued (count=${pendingCandidates.current.get(msg.from)!.length})`);
+      console.log(
+        `[${
+          msg.from
+        }] Received ICE but no RTCPeerConnection exists yet — queued (count=${
+          pendingCandidates.current.get(msg.from)!.length
+        })`
+      );
       return;
     }
 
     if (!pc.remoteDescription || !pc.remoteDescription.type) {
-      if (!pendingCandidates.current.has(msg.from)) pendingCandidates.current.set(msg.from, []);
+      if (!pendingCandidates.current.has(msg.from))
+        pendingCandidates.current.set(msg.from, []);
       pendingCandidates.current.get(msg.from)!.push(msg.data);
-      console.log(`[${msg.from}] Queued ICE candidate until remoteDescription is set (count=${pendingCandidates.current.get(msg.from)!.length})`);
+      console.log(
+        `[${
+          msg.from
+        }] Queued ICE candidate until remoteDescription is set (count=${
+          pendingCandidates.current.get(msg.from)!.length
+        })`
+      );
       return;
     }
 
