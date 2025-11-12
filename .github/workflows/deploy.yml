@@ -1,0 +1,27 @@
+name: Auto Deploy to VM
+
+on:
+  push:
+    branches: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Deploy to VM
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: root
+          key: ${{ secrets.VM_SSH_KEYS }}
+          port: 22
+          script_stop: true
+          script: |
+            cd project-mealtastic/
+            docker compose down
+            git pull
+            docker compose build
+            docker compose up -d
