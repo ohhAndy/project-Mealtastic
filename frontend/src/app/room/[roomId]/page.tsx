@@ -86,6 +86,7 @@ export default function RoomPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const peerIdRef = useRef<string | null>(null);
 
   const joined = useRef(false);
   // Join the room
@@ -100,6 +101,7 @@ export default function RoomPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        peerIdRef.current = data.newPeer.id;
         setPeerId(data.newPeer.id);
         setIsOwner(data.isOwner);
         await fetchMessages();
@@ -228,7 +230,7 @@ export default function RoomPage() {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerId),
+          from: ensurePeerId(peerIdRef.current),
           to: remoteId,
           data: e.candidate,
         });
@@ -236,7 +238,7 @@ export default function RoomPage() {
 
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
-      console.log(`[${ensurePeerId(peerId)}] Added ${localStream.getTracks().length} tracks to connection -> ${remoteId}`);
+      console.log(`[${ensurePeerId(peerIdRef.current)}] Added ${localStream.getTracks().length} tracks to connection -> ${remoteId}`);
     } else {
       console.log("No local media — data-only connection");
     }
@@ -246,7 +248,7 @@ export default function RoomPage() {
       await pc.setLocalDescription(offer);
       sendSignal({
         type: "offer",
-        from: ensurePeerId(peerId),
+        from: ensurePeerId(peerIdRef.current),
         to: remoteId,
         data: offer,
       });
@@ -274,7 +276,7 @@ export default function RoomPage() {
       if (e.candidate)
         sendSignal({
           type: "ice",
-          from: ensurePeerId(peerId),
+          from: ensurePeerId(peerIdRef.current),
           to: msg.from,
           data: e.candidate,
         });
@@ -305,7 +307,7 @@ export default function RoomPage() {
     await pc.setLocalDescription(answer);
     sendSignal({
       type: "answer",
-      from: ensurePeerId(peerId),
+      from: ensurePeerId(peerIdRef.current),
       to: msg.from,
       data: answer,
     });
