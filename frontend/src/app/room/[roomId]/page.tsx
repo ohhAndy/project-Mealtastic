@@ -73,9 +73,8 @@ export default function RoomPage() {
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
-            sendSignal({ type: "peer-joined", from: data.newPeer.id, to: other.id });
             console.log(new Date().getMilliseconds() + ": Create peer connection from " + data.newPeer.id + " to " + other.id);
-            createPeerConnection(other.id, false);
+            createPeerConnection(other.id, true);
           }
         }
       } else {
@@ -154,7 +153,7 @@ export default function RoomPage() {
       case "peer-joined":
         if (msg.from !== peerId) {
           console.log(new Date().getMilliseconds() + ": peer-joined from " + msg.from);
-          createPeerConnection(msg.from, true);
+          createPeerConnection(msg.from, false);
         }
         break;
       case "peer-left":
