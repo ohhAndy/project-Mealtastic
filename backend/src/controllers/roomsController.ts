@@ -82,12 +82,12 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
       result = await pool.query("INSERT INTO peers (room_id, user_id, username) VALUES ($1, $2, $3) RETURNING *;", [roomId, req.session.userId, name.rows[0].name]);
     }
 
-    const route = `/api/rooms/${roomId}/poll`;
-    for (let peer of peers) {
-      if (result.rows[0].id !== peer.id) {
-        longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id, to: peer.id });
-      }
-    }
+    // const route = `/api/rooms/${roomId}/poll`;
+    // for (let peer of peers) {
+    //   if (result.rows[0].id !== peer.id) {
+    //     longpollServer.publish(route, { type: "peer-joined", from: result.rows[0].id, to: peer.id });
+    //   }
+    // }
 
     return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner });
   }

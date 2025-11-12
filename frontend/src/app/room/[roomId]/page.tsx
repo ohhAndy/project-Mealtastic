@@ -75,6 +75,7 @@ export default function RoomPage() {
           if (other.id !== data.newPeer.id) {
             console.log(new Date().getMilliseconds() + ": Create peer connection from " + peerIdRef.current + " to " + other.id);
             createPeerConnection(other.id, true);
+            sendSignal({ type: "peer-joined", to: other.id, from: data.newPeer.id });
           }
         }
       } else {
