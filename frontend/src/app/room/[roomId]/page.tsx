@@ -260,48 +260,49 @@ export default function RoomPage() {
   }
 
   async function handleOffer(msg: Extract<SignalMessage, { type: "offer" }>) {
-  let pc = peerConnections.current.get(msg.from);
-  if (!pc) {
-    pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
-    logPeerState(msg.from, pc);
-    peerConnections.current.set(msg.from, pc);
+    let pc = peerConnections.current.get(msg.from);
+    if (!pc) {
+      const newPc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
+      pc = newPc; // assign to outer var
+      logPeerState(msg.from, newPc);
+      peerConnections.current.set(msg.from, newPc);
 
-    const remoteStream = new MediaStream();
-    remoteStreams.current.set(msg.from, remoteStream);
-    const localStream = localStreamRef.current;
+      const remoteStream = new MediaStream();
+      remoteStreams.current.set(msg.from, remoteStream);
+      const localStream = localStreamRef.current;
 
-    pc.ontrack = (e) => {
-      e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+      newPc.ontrack = (e) => {
+        e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
+        setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
 
-      const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
-      if (videoEl) videoEl.srcObject = remoteStream;
-    };
-    pc.onicecandidate = (e) => {
-      if (e.candidate && pc.remoteDescription) {
-        sendSignal({
-          type: "ice",
-          from: ensurePeerId(peerIdRef.current),
-          to: msg.from,
-          data: e.candidate,
-        });
-      } else if (e.candidate) {
-        // queue locally if needed
-        console.log(`[${msg.from}] ICE generated before remoteDescription — skipping send`);
+        const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
+        if (videoEl) videoEl.srcObject = remoteStream;
+      };
+
+      newPc.onicecandidate = (e) => {
+        if (e.candidate && newPc.remoteDescription) {
+          sendSignal({
+            type: "ice",
+            from: ensurePeerId(peerIdRef.current),
+            to: msg.from,
+            data: e.candidate,
+          });
+        } else if (e.candidate) {
+          console.log(`[${msg.from}] ICE generated before remoteDescription — skipping send`);
+        }
+      };
+      if (localStream) {
+        localStream.getTracks().forEach((t) => newPc.addTrack(t, localStream));
+      } else {
+        console.log("No local media — data-only connection");
       }
-    };
-    if (localStream) {
-      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
     } else {
-      console.log("No local media — data-only connection");
+      console.log(`[${msg.from}] Reusing existing RTCPeerConnection`);
     }
-  } else {
-    console.log(`[${msg.from}] Reusing existing RTCPeerConnection`);
-  }
 
-  await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
 
     const queued = pendingCandidates.current.get(msg.from);
     if (queued && queued.length) {
