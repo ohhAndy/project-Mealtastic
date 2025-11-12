@@ -227,13 +227,17 @@ export default function RoomPage() {
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
-      if (e.candidate)
+      if (e.candidate && pc.remoteDescription) {
         sendSignal({
           type: "ice",
           from: ensurePeerId(peerIdRef.current),
           to: remoteId,
           data: e.candidate,
         });
+      } else if (e.candidate) {
+        // queue locally if needed
+        console.log(`[${remoteId}] ICE generated before remoteDescription — skipping send`);
+      }
     };
 
     if (localStream) {
@@ -256,11 +260,14 @@ export default function RoomPage() {
   }
 
   async function handleOffer(msg: Extract<SignalMessage, { type: "offer" }>) {
-    const pc = new RTCPeerConnection({
+  let pc = peerConnections.current.get(msg.from);
+  if (!pc) {
+    pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
     logPeerState(msg.from, pc);
     peerConnections.current.set(msg.from, pc);
+
     const remoteStream = new MediaStream();
     remoteStreams.current.set(msg.from, remoteStream);
     const localStream = localStreamRef.current;
@@ -273,22 +280,28 @@ export default function RoomPage() {
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
-      if (e.candidate)
+      if (e.candidate && pc.remoteDescription) {
         sendSignal({
           type: "ice",
           from: ensurePeerId(peerIdRef.current),
           to: msg.from,
           data: e.candidate,
         });
+      } else if (e.candidate) {
+        // queue locally if needed
+        console.log(`[${msg.from}] ICE generated before remoteDescription — skipping send`);
+      }
     };
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
     } else {
       console.log("No local media — data-only connection");
     }
+  } else {
+    console.log(`[${msg.from}] Reusing existing RTCPeerConnection`);
+  }
 
-    // Set remote description (offer)
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+  await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
 
     const queued = pendingCandidates.current.get(msg.from);
     if (queued && queued.length) {
