@@ -187,9 +187,13 @@ export default function RoomPage() {
     remoteStreams.current.set(remoteId, remoteStream);
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(remoteId) ? prev : [...prev, remoteId]));
+      setRemoteIds((prev) =>
+        prev.includes(remoteId) ? prev : [...prev, remoteId]
+      );
 
-      const videoEl = document.getElementById(`remote-${remoteId}`) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(
+        `remote-${remoteId}`
+      ) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
@@ -233,9 +237,13 @@ export default function RoomPage() {
 
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
-      setRemoteIds((prev) => (prev.includes(msg.from) ? prev : [...prev, msg.from]));
+      setRemoteIds((prev) =>
+        prev.includes(msg.from) ? prev : [...prev, msg.from]
+      );
 
-      const videoEl = document.getElementById(`remote-${msg.from}`) as HTMLVideoElement | null;
+      const videoEl = document.getElementById(
+        `remote-${msg.from}`
+      ) as HTMLVideoElement | null;
       if (videoEl) videoEl.srcObject = remoteStream;
     };
     pc.onicecandidate = (e) => {
@@ -439,7 +447,7 @@ export default function RoomPage() {
             <CardTitle>Chat</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col flex-1">
-            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 wrap-break-word">
+            <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 max-h-96 wrap-break-word">
               {chatHistory.map((msg, i) => (
                 <div
                   key={i}
