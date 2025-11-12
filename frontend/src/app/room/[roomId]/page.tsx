@@ -79,6 +79,8 @@ export default function RoomPage() {
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
 
+  const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -234,6 +236,7 @@ export default function RoomPage() {
 
     if (localStream) {
       localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+      console.log(`[${ensurePeerId(peerId)}] Added ${localStream.getTracks().length} tracks to connection -> ${remoteId}`);
     } else {
       console.log("No local media — data-only connection");
     }
@@ -282,7 +285,22 @@ export default function RoomPage() {
       console.log("No local media — data-only connection");
     }
 
+    // Set remote description (offer)
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+
+    const queued = pendingCandidates.current.get(msg.from);
+    if (queued && queued.length) {
+      console.log(`[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (offer side)`);
+      for (const c of queued) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (err) {
+          console.warn(`[${msg.from}] Failed to add queued ICE candidate (offer side):`, err);
+        }
+      }
+      pendingCandidates.current.delete(msg.from);
+    }
+
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     sendSignal({
@@ -303,17 +321,49 @@ export default function RoomPage() {
     }
 
     await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+
+    const queued = pendingCandidates.current.get(msg.from);
+    if (queued && queued.length) {
+      console.log(`[${msg.from}] Flushing ${queued.length} queued ICE candidate(s) after setRemoteDescription (answer side)`);
+      for (const c of queued) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (err) {
+          console.warn(`[${msg.from}] Failed to add queued ICE candidate (answer side):`, err);
+        }
+      }
+      pendingCandidates.current.delete(msg.from);
+    }
   }
 
   async function handleIce(msg: Extract<SignalMessage, { type: "ice" }>) {
     const pc = peerConnections.current.get(msg.from);
-    if (pc) await pc.addIceCandidate(new RTCIceCandidate(msg.data));
+    if (!pc) {
+      if (!pendingCandidates.current.has(msg.from)) pendingCandidates.current.set(msg.from, []);
+      pendingCandidates.current.get(msg.from)!.push(msg.data);
+      console.log(`[${msg.from}] Received ICE but no RTCPeerConnection exists yet — queued (count=${pendingCandidates.current.get(msg.from)!.length})`);
+      return;
+    }
+
+    if (!pc.remoteDescription || !pc.remoteDescription.type) {
+      if (!pendingCandidates.current.has(msg.from)) pendingCandidates.current.set(msg.from, []);
+      pendingCandidates.current.get(msg.from)!.push(msg.data);
+      console.log(`[${msg.from}] Queued ICE candidate until remoteDescription is set (count=${pendingCandidates.current.get(msg.from)!.length})`);
+      return;
+    }
+
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(msg.data));
+    } catch (err) {
+      console.warn(`[${msg.from}] Failed to add ICE candidate:`, err);
+    }
   }
 
   function removePeer(id: string) {
     peerConnections.current.get(id)?.close();
     peerConnections.current.delete(id);
     remoteStreams.current.delete(id);
+    pendingCandidates.current.delete(id);
     setRemoteIds((p) => p.filter((r) => r !== id));
   }
 
@@ -343,6 +393,7 @@ export default function RoomPage() {
     peerConnections.current.forEach((pc) => pc.close());
     peerConnections.current.clear();
     remoteStreams.current.clear();
+    pendingCandidates.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setRemoteIds([]);
   }
