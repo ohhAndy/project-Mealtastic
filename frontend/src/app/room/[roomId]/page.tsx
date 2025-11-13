@@ -49,49 +49,63 @@ function logPeerState(peerId: string, pc: RTCPeerConnection) {
     console.warn(`[${peerId}] ICE candidate error:`, e);
   };
 }
+
+function VideoTile(props: {
+  label: string;
+  subLabel?: string;
+  stream: MediaStream | null;
+  muted?: boolean;
+  id?: string;
+}) {
+  const { label, subLabel, stream, muted, id } = props;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream && videoRef.current.srcObject !== stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <div className="relative aspect-video w-full rounded-xl border border-gray-300 bg-black overflow-hidden shadow-sm">
+      <video
+        id={id}
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        className="w-full h-full object-cover"
+      />
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-[11px] text-white flex justify-between items-center">
+        <span className="truncate font-medium">{label}</span>
+        {subLabel && (
+          <span className="ml-2 truncate text-[10px] text-gray-200">
+            {subLabel}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const RemoteVideoGrid = memo(function RemoteVideoGrid(props: {
   remoteIds: string[];
-  remoteStreams: React.MutableRefObject<Map<string, MediaStream>>;
+  remoteStreams: React.RefObject<Map<string, MediaStream>>;
 }) {
   const { remoteIds, remoteStreams } = props;
 
-  if (remoteIds.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-sm text-gray-400 border border-dashed rounded-lg">
-        Waiting for others to join…
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <>
       {remoteIds.map((id) => (
-        <div
+        <VideoTile 
           key={id}
-          className="relative w-full aspect-video rounded-xl border border-gray-300 bg-black overflow-hidden"
-        >
-          <video
-            id={`remote-${id}`}
-            autoPlay
-            playsInline
-            muted
-            // keep video itself independent of React state
-            ref={(el) => {
-              if (el && remoteStreams.current.has(id)) {
-                const stream = remoteStreams.current.get(id)!;
-                if (el.srcObject !== stream) {
-                  el.srcObject = stream;
-                }
-              }
-            }}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[11px] text-white px-2 py-1 flex justify-between items-center">
-            <span className="truncate">Peer: {id}</span>
-          </div>
-        </div>
+          label="Peer"
+          subLabel={id}
+          stream={remoteStreams.current.get(id) ?? null}
+          muted
+        />
       ))}
-    </div>
+    </>
   );
 });
 
@@ -594,26 +608,14 @@ export default function RoomPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col flex-1 gap-4">
-            <div className="w-full max-w-xl">
-              <div className="relative w-full aspect-video rounded-xl border border-gray-300 bg-black overflow-hidden">
-                <video
-                  id="localVideo"
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[11px] text-white px-2 py-1 flex justify-between items-center">
-                  <span className="font-medium">You</span>
-                  {peerId && (
-                    <span className="text-[10px] text-gray-200">
-                      Peer ID: {peerId}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <VideoTile
+              id="localVideo"
+              label="You"
+              subLabel={peerId ?? ""}
+              stream={localStreamRef.current}
+              muted
+            /> 
 
             {/* Remote videos */}
             <RemoteVideoGrid
@@ -634,7 +636,7 @@ export default function RoomPage() {
                 return (
                   <div
                     key={i}
-                    className={`my-1 flex${
+                    className={`my-1 flex ${
                       isSelf ? "justify-end" : "justify-start"
                     }`}
                   >
