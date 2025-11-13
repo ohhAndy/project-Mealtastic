@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type SignalMessage =
   | {
@@ -50,6 +49,51 @@ function logPeerState(peerId: string, pc: RTCPeerConnection) {
     console.warn(`[${peerId}] ICE candidate error:`, e);
   };
 }
+const RemoteVideoGrid = memo(function RemoteVideoGrid(props: {
+  remoteIds: string[];
+  remoteStreams: React.MutableRefObject<Map<string, MediaStream>>;
+}) {
+  const { remoteIds, remoteStreams } = props;
+
+  if (remoteIds.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-gray-400 border border-dashed rounded-lg">
+        Waiting for others to join…
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {remoteIds.map((id) => (
+        <div
+          key={id}
+          className="relative w-full aspect-video rounded-xl border border-gray-300 bg-black overflow-hidden"
+        >
+          <video
+            id={`remote-${id}`}
+            autoPlay
+            playsInline
+            muted
+            // keep video itself independent of React state
+            ref={(el) => {
+              if (el && remoteStreams.current.has(id)) {
+                const stream = remoteStreams.current.get(id)!;
+                if (el.srcObject !== stream) {
+                  el.srcObject = stream;
+                }
+              }
+            }}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[11px] text-white px-2 py-1 flex justify-between items-center">
+            <span className="truncate">Peer: {id}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
 
 export default function RoomPage() {
   const params = useParams();
@@ -62,6 +106,7 @@ export default function RoomPage() {
   >([]);
   const [chatInput, setChatInput] = useState("");
   const [isOwner, setIsOwner] = useState(false);
+  const [isSendingChat, setIsSendingChat] = useState(false);
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
@@ -176,7 +221,7 @@ export default function RoomPage() {
       stopped = true;
       pollingAbort.current?.abort();
     };
-  }, [peerId]);
+  }, [peerId, roomId, router]);
 
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
@@ -466,14 +511,20 @@ export default function RoomPage() {
   }
 
   async function sendChat() {
-    if (!chatInput.trim() || !peerId) return;
+    if (!chatInput.trim() || !peerId || isSendingChat) return;
+    setIsSendingChat(true);
+
+    await new Promise((r) => setTimeout(r, 150));
+
     await fetch(`/api/rooms/${roomId}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from: peerId, content: chatInput }),
       credentials: "include",
     });
+
     setChatInput("");
+    setIsSendingChat(false);
   }
 
   function cleanupAndLeave() {
@@ -522,9 +573,16 @@ export default function RoomPage() {
   return (
     <>
       <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] p-4 gap-4">
-        <Card className="flex-1">
-          <CardHeader className="flex justify-between items-center">
-            <CardTitle>Room: {roomId}</CardTitle>
+        <Card className="flex flex-col flex-1">
+          <CardHeader className="flex justify-between items-center space-y-0">
+            <div>
+              <CardTitle className="text-lg font-semibold">
+                Room: {roomId}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Max 4 participants · You + {remoteIds.length} others
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleLeaveRoom}>
                 Leave
@@ -536,65 +594,91 @@ export default function RoomPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <video
-                id="localVideo"
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-auto rounded-lg bg-black"
-              />
-              {remoteIds.map((id) => (
+          <CardContent className="flex flex-col flex-1 gap-4">
+            <div className="w-full max-w-xl">
+              <div className="relative w-full aspect-video rounded-xl border border-gray-300 bg-black overflow-hidden">
                 <video
-                  key={id}
-                  id={`remote-${id}`}
+                  id="localVideo"
                   autoPlay
                   playsInline
-                  ref={(el) => {
-                    if (el && remoteStreams.current.has(id)) {
-                      el.srcObject = remoteStreams.current.get(id)!;
-                    }
-                  }}
-                  className="w-full h-auto rounded-lg bg-black"
+                  muted
+                  className="w-full h-full object-cover"
                 />
-              ))}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-[11px] text-white px-2 py-1 flex justify-between items-center">
+                  <span className="font-medium">You</span>
+                  {peerId && (
+                    <span className="text-[10px] text-gray-200">
+                      Peer ID: {peerId}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* Remote videos */}
+            <RemoteVideoGrid
+              remoteIds={remoteIds}
+              remoteStreams={remoteStreams}
+            />
           </CardContent>
         </Card>
 
         <Card className="w-full md:w-80 flex flex-col">
-          <CardHeader>
-            <CardTitle>Chat</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Chat</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col flex-1">
+          <CardContent className="flex flex-col flex-1 h-full">
             <div className="flex-1 overflow-y-auto border rounded p-2 mb-2 bg-gray-50 wrap-break-word">
-              {chatHistory.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`my-1 ${
-                    msg.from === peerId ? "text-right" : "text-left"
-                  }`}
-                >
-                  <Label className="block text-xs text-gray-500">
-                    {msg.from === peerId ? "You" : msg.from}
-                  </Label>
-                  <span className="inline-block bg-white border rounded px-2 py-1 text-sm">
-                    {msg.content}
-                  </span>
-                </div>
-              ))}
+              {chatHistory.map((msg, i) => {
+                const isSelf = msg.from === peerId;
+                return (
+                  <div
+                    key={i}
+                    className={`my-1 flex${
+                      isSelf ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-lg px-2 py-1 text-sm shadow-sm ${
+                        isSelf
+                          ? "bg-blue-500 text-white"
+                          : "bg-white text-gray-900 border border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-[11px] font-medium opacity-80">
+                          {isSelf ? "You" : msg.from}
+                        </span>
+                        {msg.timestamp && (
+                          <span className="text-[10px] opacity-60">
+                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 whitespace-pre-wrap wrap-break-word">
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
 
               <div ref={chatEndRef} />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-1">
               <Input
                 placeholder="Type a message..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                disabled={isSendingChat}
               />
-              <Button onClick={sendChat}>Send</Button>
+              <Button onClick={sendChat}>
+                {isSendingChat ? "Sending..." : "Send"}
+              </Button>
             </div>
           </CardContent>
         </Card>
