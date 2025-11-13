@@ -151,6 +151,18 @@ export default function RoomPage() {
           signal: pollingAbort.current.signal,
           credentials: "include",
         });
+
+        if (!res.ok) {
+          // If room/peer is gone, treat as deleted and bail
+          console.warn("poll error status", res.status);
+          if (res.status === 403 || res.status === 404) {
+            alert("This room is no longer available.");
+            cleanupAndLeave();
+            router.push("/room");
+            return;
+          }
+        }
+
         const msg = await res.json();
         handleSignal(msg);
       } catch {
@@ -170,7 +182,8 @@ export default function RoomPage() {
   function handleSignal(msg: SignalMessage) {
     if (!msg || !msg.type) return;
     if (
-      (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") && msg.to &&
+      (msg.type === "offer" || msg.type === "answer" || msg.type === "ice") &&
+      msg.to &&
       msg.to !== peerId
     )
       return;
@@ -238,7 +251,7 @@ export default function RoomPage() {
     logPeerState(remoteId, pc);
     peerConnections.current.set(remoteId, pc);
 
-    if(!localStream) {
+    if (!localStream) {
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.addTransceiver("audio", { direction: "recvonly" });
     }
@@ -303,7 +316,7 @@ export default function RoomPage() {
       remoteStreams.current.set(msg.from, remoteStream);
       const localStream = localStreamRef.current;
 
-      if(!localStream) {
+      if (!localStream) {
         newPc.addTransceiver("video", { direction: "recvonly" });
         newPc.addTransceiver("audio", { direction: "recvonly" });
       }

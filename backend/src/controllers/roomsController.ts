@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import pool from "../db";
-import { DatabaseError, Result } from "pg";
-import longpoll from "express-longpoll";
 
 type SignalMessage =
   | {
@@ -248,9 +246,9 @@ export async function deleteRoom(req: Request, res: Response, next: NextFunction
     if (rows[0].owner_id !== req.session.userId)
       return res.status(403).end("Only the owner can delete this room");
 
-    await pool.query("DELETE FROM rooms WHERE id = $1;", [roomId]);
-
     const peers = await getPeers(roomId);
+
+    await pool.query("DELETE FROM rooms WHERE id = $1;", [roomId]);
 
     const payload: SignalMessage = { type: "room-deleted", from: "" } as any;
 
@@ -312,7 +310,6 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     };
 
     for (const p of peers) {
-      if (p.id === from) continue; // client already appends its own message
       enqueueSignal(roomId, p.id, payload);
     }
 
