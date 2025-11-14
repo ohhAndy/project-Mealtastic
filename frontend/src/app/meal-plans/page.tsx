@@ -245,6 +245,7 @@ export default function MealPlannerPage() {
 
   function getMealEntry(date: string, mealType: MealType): MealEntry | null {
     if (!mealPlan?.entries) return null;
+    console.log(date);
     return (
       mealPlan.entries.find(
         (e) => e.date === date && e.meal_type === mealType
