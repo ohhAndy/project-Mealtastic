@@ -94,8 +94,9 @@ export default function MealPlanner() {
   }
 
   function formatDate(dateStr: string): string {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day); // construct local date
+    return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
   }
 
   function addDays(dateStr: string, days: number): string {
