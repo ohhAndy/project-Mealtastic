@@ -130,7 +130,6 @@ export default function MealPlannerPage() {
         setMealPlan(null);
       } else if (res.ok) {
         const data: MealPlan = await res.json();
-        console.log(data);
         setMealPlan(data);
       } else {
         throw new Error("Failed to fetch meal plan");
@@ -245,10 +244,9 @@ export default function MealPlannerPage() {
 
   function getMealEntry(date: string, mealType: MealType): MealEntry | null {
     if (!mealPlan?.entries) return null;
-    console.log(date);
     return (
       mealPlan.entries.find(
-        (e) => e.date === date && e.meal_type === mealType
+        (e) => e.date.split("T")[0] === date && e.meal_type === mealType
       ) || null
     );
   }
