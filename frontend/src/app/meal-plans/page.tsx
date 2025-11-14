@@ -1,16 +1,37 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, Plus, X, Search, RefreshCw, Trash2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from "react";
+import {
+  Calendar,
+  ChevronLeft,
+  Plus,
+  X,
+  Search,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const;
+const DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const MEAL_TYPES = ["breakfast", "lunch", "dinner"] as const;
 
-type MealType = typeof MEAL_TYPES[number];
+type MealType = (typeof MEAL_TYPES)[number];
 
 interface MealEntry {
   id: number;
@@ -43,12 +64,16 @@ interface SelectedEntry {
 
 export default function MealPlanner() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [currentWeekStart, setCurrentWeekStart] = useState<string>(getWeekStart(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState<string>(
+    getWeekStart(new Date())
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [swapModalOpen, setSwapModalOpen] = useState<boolean>(false);
-  const [selectedEntry, setSelectedEntry] = useState<SelectedEntry | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedEntry, setSelectedEntry] = useState<SelectedEntry | null>(
+    null
+  );
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
 
@@ -58,21 +83,25 @@ export default function MealPlanner() {
 
   function getWeekStart(date: Date): string {
     const d = new Date(date);
-    const day = d.getDay();
+    const day = d.getDay(); // 0=Sun, 1=Mon ...
     const diff = d.getDate() - ((day + 6) % 7);
     d.setDate(diff);
-    return d.toISOString().split('T')[0];
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const dayOfMonth = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${dayOfMonth}`;
   }
 
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   }
 
   function addDays(dateStr: string, days: number): string {
     const date = new Date(dateStr);
     date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   }
 
   function navigateWeek(direction: number): void {
@@ -98,10 +127,10 @@ export default function MealPlanner() {
         const data: MealPlan = await res.json();
         setMealPlan(data);
       } else {
-        throw new Error('Failed to fetch meal plan');
+        throw new Error("Failed to fetch meal plan");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -111,50 +140,53 @@ export default function MealPlanner() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meal-planner/generate`, { 
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch(`/api/meal-planner/generate`, {
+        method: "POST",
+        credentials: "include",
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || 'Failed to generate meal plan');
+        throw new Error(text || "Failed to generate meal plan");
       }
       await fetchMealPlan(currentWeekStart);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   }
 
   async function deleteMealPlan(): Promise<void> {
-    if (!mealPlan || !confirm('Delete this entire meal plan?')) return;
+    if (!mealPlan || !confirm("Delete this entire meal plan?")) return;
     setLoading(true);
     try {
       const planId = mealPlan.entries[0]?.plan_id;
-      await fetch(`/api/meal-planner/${planId}`, { 
-        method: 'DELETE',
-        credentials: 'include',
+      await fetch(`/api/meal-planner/${planId}`, {
+        method: "DELETE",
+        credentials: "include",
       });
       setMealPlan(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
   }
 
-  async function updateMealEntry(entryId: number, recipeId: number | null): Promise<void> {
+  async function updateMealEntry(
+    entryId: number,
+    recipeId: number | null
+  ): Promise<void> {
     try {
       await fetch(`/api/meal-planner/entries/${entryId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipe_id: recipeId }),
-        credentials: 'include',
+        credentials: "include",
       });
       await fetchMealPlan(currentWeekStart);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -172,7 +204,7 @@ export default function MealPlanner() {
       const data: { recipes?: Recipe[] } = await res.json();
       setSearchResults(data.recipes || []);
     } catch (err) {
-      console.error('Search error:', err);
+      console.error("Search error:", err);
     } finally {
       setSearching(false);
     }
@@ -183,19 +215,19 @@ export default function MealPlanner() {
       id: entry.id,
       date: entry.date,
       meal_type: entry.meal_type,
-      plan_id: entry.plan_id
+      plan_id: entry.plan_id,
     });
     setSwapModalOpen(true);
-    setSearchQuery('');
-    searchRecipes('');
+    setSearchQuery("");
+    searchRecipes("");
   }
 
   function openAddModal(date: string, mealType: MealType): void {
     const entry: SelectedEntry = { date, meal_type: mealType, id: null };
     setSelectedEntry(entry);
     setSwapModalOpen(true);
-    setSearchQuery('');
-    searchRecipes('');
+    setSearchQuery("");
+    searchRecipes("");
   }
 
   async function selectRecipe(recipeId: number): Promise<void> {
@@ -207,7 +239,11 @@ export default function MealPlanner() {
 
   function getMealEntry(date: string, mealType: MealType): MealEntry | null {
     if (!mealPlan?.entries) return null;
-    return mealPlan.entries.find(e => e.date === date && e.meal_type === mealType) || null;
+    return (
+      mealPlan.entries.find(
+        (e) => e.date === date && e.meal_type === mealType
+      ) || null
+    );
   }
 
   function getWeekDates(): string[] {
@@ -221,7 +257,9 @@ export default function MealPlanner() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Weekly Meal Plan</h1>
+          <h1 className="text-4xl font-bold text-slate-900 mb-2">
+            Weekly Meal Plan
+          </h1>
           <p className="text-slate-600">Plan your meals for the week ahead</p>
         </div>
 
@@ -305,7 +343,9 @@ export default function MealPlanner() {
         {/* Error Alert */}
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -321,8 +361,12 @@ export default function MealPlanner() {
         {!loading && !mealPlan && isCurrentWeek() && (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Meal Plan Yet</h3>
-            <p className="text-slate-600 mb-6">Generate your first weekly meal plan to get started</p>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">
+              No Meal Plan Yet
+            </h3>
+            <p className="text-slate-600 mb-6">
+              Generate your first weekly meal plan to get started
+            </p>
             <Button
               onClick={generateMealPlan}
               className="bg-green-700 hover:bg-green-800 text-white"
@@ -335,8 +379,12 @@ export default function MealPlanner() {
         {!loading && !mealPlan && !isCurrentWeek() && (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Meal Plan for This Week</h3>
-            <p className="text-slate-600">This week doesn&apos;t have a meal plan yet</p>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">
+              No Meal Plan for This Week
+            </h3>
+            <p className="text-slate-600">
+              This week doesn&apos;t have a meal plan yet
+            </p>
           </div>
         )}
 
@@ -346,20 +394,27 @@ export default function MealPlanner() {
             {weekDates.map((date, dayIndex) => (
               <div key={date} className="space-y-3">
                 <div className="text-center pb-2 border-b-2 border-green-700">
-                  <div className="font-semibold text-slate-900">{DAYS[dayIndex]}</div>
-                  <div className="text-sm text-slate-500">{formatDate(date)}</div>
+                  <div className="font-semibold text-slate-900">
+                    {DAYS[dayIndex]}
+                  </div>
+                  <div className="text-sm text-slate-500">
+                    {formatDate(date)}
+                  </div>
                 </div>
 
-                {MEAL_TYPES.map(mealType => {
+                {MEAL_TYPES.map((mealType) => {
                   const entry = getMealEntry(date, mealType);
                   const hasRecipe = entry && entry.recipe_id;
 
                   return (
-                    <div key={mealType} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div
+                      key={mealType}
+                      className="bg-white rounded-lg shadow-sm overflow-hidden"
+                    >
                       <div className="bg-slate-100 px-3 py-2 text-xs font-medium text-slate-700 uppercase">
                         {mealType}
                       </div>
-                      
+
                       {hasRecipe ? (
                         <div className="p-3">
                           {entry.image_url && (
@@ -416,7 +471,8 @@ export default function MealPlanner() {
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>
-                {selectedEntry?.id ? 'Swap Recipe' : 'Add Recipe'} - {selectedEntry?.meal_type}
+                {selectedEntry?.id ? "Swap Recipe" : "Add Recipe"} -{" "}
+                {selectedEntry?.meal_type}
               </DialogTitle>
             </DialogHeader>
 
@@ -449,7 +505,7 @@ export default function MealPlanner() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  {searchResults.map(recipe => (
+                  {searchResults.map((recipe) => (
                     <div
                       key={recipe.id}
                       onClick={() => selectRecipe(recipe.id)}
@@ -463,7 +519,9 @@ export default function MealPlanner() {
                         />
                       )}
                       <div className="p-3">
-                        <h4 className="font-medium text-sm text-slate-900">{recipe.title}</h4>
+                        <h4 className="font-medium text-sm text-slate-900">
+                          {recipe.title}
+                        </h4>
                         {recipe.ready_in_minutes && (
                           <p className="text-xs text-slate-500 mt-1">
                             {recipe.ready_in_minutes} mins
