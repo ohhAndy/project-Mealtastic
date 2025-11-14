@@ -129,7 +129,7 @@ export default function MealPlannerPage() {
       if (res.status === 404) {
         setMealPlan(null);
       } else if (res.ok) {
-        console.log(res.json);
+        console.log(res.json());
         const data: MealPlan = await res.json();
         setMealPlan(data);
       } else {
