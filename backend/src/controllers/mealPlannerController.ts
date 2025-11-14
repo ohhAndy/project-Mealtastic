@@ -136,14 +136,14 @@ export async function updateMealPlanEntry(req: Request, res: Response, next: Nex
   try {
     const entryId = parseInt(req.params.id);
     const { recipe_id } = req.body;
-    if (!entryId || !recipe_id)
-      return res.status(400).end("Missing entry ID or recipe ID");
+    if (!entryId)
+      return res.status(400).end("Missing entry ID");
 
     await pool.query(
       `UPDATE meal_plan_entries
        SET recipe_id = $1
        WHERE id = $2;`,
-      [recipe_id, entryId]
+      [recipe_id || null, entryId]
     );
 
     res.sendStatus(200);
