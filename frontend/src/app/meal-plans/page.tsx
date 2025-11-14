@@ -62,7 +62,7 @@ interface SelectedEntry {
   plan_id?: number;
 }
 
-export default function MealPlanner() {
+export default function MealPlannerPage() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -129,6 +129,7 @@ export default function MealPlanner() {
       if (res.status === 404) {
         setMealPlan(null);
       } else if (res.ok) {
+        console.log(res.json);
         const data: MealPlan = await res.json();
         setMealPlan(data);
       } else {
