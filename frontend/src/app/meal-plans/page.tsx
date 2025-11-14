@@ -64,9 +64,7 @@ interface SelectedEntry {
 
 export default function MealPlanner() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
-  const [currentWeekStart, setCurrentWeekStart] = useState<string>(
-    getWeekStart(new Date())
-  );
+  const [currentWeekStart, setCurrentWeekStart] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [swapModalOpen, setSwapModalOpen] = useState<boolean>(false);
@@ -76,6 +74,10 @@ export default function MealPlanner() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
+
+  useEffect(() => {
+    setCurrentWeekStart(getWeekStart(new Date()));
+  }, []);
 
   useEffect(() => {
     fetchMealPlan(currentWeekStart);
@@ -99,7 +101,8 @@ export default function MealPlanner() {
     return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
   }
 
-  function addDays(dateStr: string, days: number): string {
+  function addDays(dateStr: string | null, days: number): string {
+    if(!dateStr) return "";
     const date = new Date(dateStr);
     date.setDate(date.getDate() + days);
     return date.toISOString().split("T")[0];
@@ -114,7 +117,8 @@ export default function MealPlanner() {
     return currentWeekStart === getWeekStart(new Date());
   }
 
-  async function fetchMealPlan(weekStart: string): Promise<void> {
+  async function fetchMealPlan(weekStart: string | null): Promise<void> {
+    if(!weekStart) return;
     setLoading(true);
     setError(null);
     try {
