@@ -88,7 +88,7 @@ export default function MealPlanner() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meal-plans?week_start=${weekStart}`, {
+      const res = await fetch(`/api/meal-planner?week_start=${weekStart}`, {
         method: "GET",
         credentials: "include",
       });
@@ -111,7 +111,7 @@ export default function MealPlanner() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meal-plans/generate`, { 
+      const res = await fetch(`/api/meal-planner/generate`, { 
         method: 'POST',
         credentials: 'include',
       });
@@ -132,7 +132,7 @@ export default function MealPlanner() {
     setLoading(true);
     try {
       const planId = mealPlan.entries[0]?.plan_id;
-      await fetch(`/api/meal-plans/${planId}`, { 
+      await fetch(`/api/meal-planner/${planId}`, { 
         method: 'DELETE',
         credentials: 'include',
       });
@@ -146,7 +146,7 @@ export default function MealPlanner() {
 
   async function updateMealEntry(entryId: number, recipeId: number | null): Promise<void> {
     try {
-      await fetch(`/api/meal-plans/entries/${entryId}`, {
+      await fetch(`/api/meal-planner/entries/${entryId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipe_id: recipeId }),
