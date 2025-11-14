@@ -38,7 +38,7 @@ interface MealEntry {
   plan_id: number;
   date: string;
   meal_type: MealType;
-  recipe_id: number | null;
+  recipe_id: string | null;
   title?: string;
   image_url?: string;
 }
@@ -129,8 +129,8 @@ export default function MealPlannerPage() {
       if (res.status === 404) {
         setMealPlan(null);
       } else if (res.ok) {
-        console.log(res.json());
         const data: MealPlan = await res.json();
+        console.log(data);
         setMealPlan(data);
       } else {
         throw new Error("Failed to fetch meal plan");
