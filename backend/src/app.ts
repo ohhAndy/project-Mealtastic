@@ -8,15 +8,15 @@ import preferencesRoutes from "./routes/preferencesRoutes";
 import roomRoutes from "./routes/roomsRoutes";
 import dotenv from "dotenv";
 import cors from "cors";
-import longpoll from "express-longpoll";
 import { cleanupInactivePeers } from "./controllers/roomsController";
+import { warmCache } from "./config/memcached";
 
 dotenv.config();
 
 const PORT = 3001;
 const app = express();
 
-const longpollServer = longpoll(app);
+warmCache();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -45,11 +45,6 @@ app.use(
   })
 );
 
-app.use((req, _res, next) => {
-  (req as any).longpoll = longpollServer;
-  next();
-});
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
@@ -60,10 +55,6 @@ app.use('/api/rooms', roomRoutes);
 // production: use a dockerized nginx to serve frontend files
 if (process.env.NODE_ENV == "dev")
   app.use(express.static("../../frontend/src"));
-
-// setInterval(function() {
-//   cleanupInactivePeers(longpollServer, parseInt(process.env.THRESHOLD!));
-// }, 30000);
 
 export const server = createServer(app).listen(PORT, function () {
   console.log("HTTP server on http://localhost:%s", PORT);

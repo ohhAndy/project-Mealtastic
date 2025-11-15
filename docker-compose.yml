@@ -77,6 +77,16 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - internal
+  
+  memcached:
+    image: memcached:latest
+    container_name: memcached
+    restart: unless-stopped
+    command: memcached -m 64 -p 11211
+    networks:
+      - internal
+    expose:
+      - "11211"
     # ports:
     #   - "5432:5432" 
   # mongo:

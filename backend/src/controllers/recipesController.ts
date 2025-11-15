@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import pool from "../db";
 import dotenv from 'dotenv';
+import { getRecipeKey, getSearchKey, cacheSet, cacheGet } from "../config/memcached";
 
 dotenv.config();
 
@@ -12,10 +13,14 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
   const diet = req.query.diet ? (req.query.diet as string).toLowerCase() : null;
   const maxPrepTime = req.query.maxPrepTime ? parseInt(req.query.maxPrepTime as string) : 1000000000;
 
+  const cache_key = getSearchKey({ query: main_query, cuisine, diet, maxPrepTime, page, limit });
+  const cached = await cacheGet<any[]>(cache_key);
+  if (cached) return res.json(cached);
 
   if (!main_query)
      return res.status(400).end("query is missing");
   try{
+    // still need to include this since searches won't be stored in database thus won't be part of the initial memcached warming up
     let sql_query = 
     `
     SELECT r.*
@@ -40,11 +45,12 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
 
     let result = await pool.query(sql_query, params);
     if (result.rows.length > 0) {
+      cacheSet(cache_key, result.rows, 0);
       return res.json(result.rows);
     }
 
 
-    // not enough results in db, try spoonacular
+    // not enough results in db, try spoonacular again do this because cache will not be initially storing searches
     const spoonacular_url = new URL("https://api.spoonacular.com/recipes/complexSearch");
     spoonacular_url.searchParams.append("query", main_query);
     spoonacular_url.searchParams.append("addRecipeInformation", "true");
@@ -79,27 +85,25 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
         rating: 0
       });
     }
+    cacheSet(cache_key, recipe_list, 0); // forever storing
     await Promise.all(
-      recipes.map(async (recipe: any) => {
-        try {
-          const cuisines = Array.isArray(recipe.cuisines) ? recipe.cuisines : [];
-          const diets = Array.isArray(recipe.diets) ? recipe.diets : [];
-          await pool.query(
-            "INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING;",
-            [
-              recipe.id?.toString(),
-              recipe.title,
-              recipe.image,
-              recipe.readyInMinutes ?? 0,
-              cuisines,
-              diets,
-              recipe.sourceUrl ?? null,
-              JSON.stringify(recipe),
-            ]
-          );
-        } catch (err) {
-          console.error(`Failed to cache recipe ${recipe.id}:`, err);
-        }
+      recipe_list.map(async (recipe: any) => {
+        cacheSet(getRecipeKey(recipe.id?.toString()), recipe, 0);
+        pool.query(
+          "INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING;",
+          [
+            recipe.id,
+            recipe.title,
+            recipe.image_url,
+            recipe.prep_time,
+            recipe.cuisines,
+            recipe.diets,
+            recipe.source,
+            JSON.stringify(recipe.cached_data),
+          ]
+        ).catch((err) => {
+          if (err) console.log(`Failed to store recipe ${recipe.id}:`, err);
+        });
       })
     );
     return res.json(recipe_list);
@@ -113,7 +117,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
   }
 }
 
-async function cacheRecipe(recipe_id: string, persistent: boolean, rating: number | undefined) {
+async function cacheRecipe(recipe_id: string, rating: number | undefined) {
   const spoonacular_url = new URL(`https://api.spoonacular.com/recipes/${recipe_id}/information`);
   spoonacular_url.searchParams.append("apiKey", process.env.API_KEY as string);
   const response = await fetch(spoonacular_url);
@@ -130,33 +134,32 @@ async function cacheRecipe(recipe_id: string, persistent: boolean, rating: numbe
       cached_data: recipe_data,
       rating: rating ?? 0,
     }
-  pool.query("INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data, rating, persistent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING;",
+  pool.query("INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data, rating) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO NOTHING;",
     [
-      recipe_data.id?.toString(),
-      recipe_data.title,
-      recipe_data.image,
-      recipe_data.readyInMinutes,
-      recipe_data.cuisines ?? [],
-      recipe_data.diets ?? [],
-      recipe_data.sourceUrl,
+      recipe.id,
+      recipe.title,
+      recipe.image_url,
+      recipe.prep_time,
+      recipe.cuisines,
+      recipe.diets,
+      recipe.source,
       JSON.stringify(recipe_data),
-      rating ?? 0,
-      persistent
+      recipe.rating
     ]
   );
+  cacheSet(getRecipeKey(recipe.id), recipe, 0);
   return recipe;
 }
 
 export async function getRecipe(req: Request, res: Response, next: NextFunction) {
   try{
     const recipe_id = req.params.id;
-    const result = await pool.query("SELECT * FROM recipes WHERE id = $1::text LIMIT 1;", [recipe_id]);
-    if (result.rows.length > 0) {
-      return res.json(result.rows[0]);
-    }
+    const cache_key = getRecipeKey(recipe_id);
+    const cached = await cacheGet<any[]>(cache_key);
+    if (cached) return res.json(cached);
 
-    // recipe's not in our db so try externally in spoonacular
-    const recipe = cacheRecipe(recipe_id, false, undefined).catch(err => console.log(`caching failed in background for recipe ${recipe_id}: ${err}`));
+    // recipe's not in our cache so try externally in spoonacular
+    const recipe = cacheRecipe(recipe_id, undefined).catch((err) => {if (err) console.log(`caching failed in background for recipe ${recipe_id}: ${err}`)});
     return res.json(recipe);
   } catch(err) {
     if (err instanceof Error) {
@@ -171,12 +174,6 @@ export async function saveRecipe(req: Request, res: Response, next: NextFunction
   try {
     const recipe_id =   req.params.id;
     await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2::text);", [req.session.userId, recipe_id]);
-    const recipe = await pool.query("UPDATE recipes SET persistent = TRUE WHERE id = $1::text RETURNING *;", [recipe_id]);
-
-    // ensure that the recipe is cached
-    if (recipe.rows.length < 1) {
-      cacheRecipe(recipe_id, true, undefined).catch(err => console.log(`caching failed in background for recipe ${recipe_id}: ${err}`));
-    }
     res.sendStatus(200);
   } catch (err){
     if (err instanceof Error){
@@ -220,7 +217,6 @@ export async function deleteSavedRecipe(req: Request, res: Response, next: NextF
       WHERE recipe_id = $1::text AND user_id = $2;`,
       [recipe_id, req.session.userId]
     );
-    await pool.query("UPDATE recipes SET persistent = FALSE WHERE id = $1::text AND id NOT IN (SELECT recipe_id FROM reviews);", [recipe_id]);
     res.sendStatus(200);
   } catch(err) {
     if (err instanceof Error){
@@ -238,13 +234,10 @@ export async function postReview(req: Request, res: Response, next: NextFunction
   try {
     await pool.query("INSERT INTO reviews (user_id, recipe_id, rating, comment) VALUES ($1, $2::text, $3, $4);", [req.session.userId, recipe_id, rating, comment]);
 
-    // update average rating, persistence and make sure recipe is cached
-    const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text),persistent = TRUE WHERE id = $1::text RETURNING *;", [recipe_id]);
-
-    // ensure that the recipe is cached
-    if (recipe.rows.length < 1) {
-      cacheRecipe(recipe_id, true, rating).catch(err => console.log(`caching failed in background for recipe ${recipe_id}: ${err}`));
-    }
+    // update average rating
+    const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) WHERE id = $1::text RETURNING *;", [recipe_id]);
+    const cache_key = getRecipeKey(recipe.rows[0].id as string);
+    cacheSet(cache_key, recipe.rows[0]);
     res.sendStatus(200);
   } catch (err) {
     if (err instanceof Error){
@@ -268,9 +261,8 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
       LIMIT $2 OFFSET $3;`,
       [recipe_id, limit, limit*page]
     );
-    const cached_recipes = result.rows;
-    return res.json(cached_recipes);
-    // no need to check spoontacular because all saved recipes will remain cached
+    const reviews = result.rows;
+    return res.json(reviews);
   } catch (err) {
     if (err instanceof Error){
       console.log(err);
