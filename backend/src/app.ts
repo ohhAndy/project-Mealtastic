@@ -6,6 +6,8 @@ import authRoutes from "./routes/authRoutes";
 import recipeRoutes from "./routes/recipesRoutes";
 import preferencesRoutes from "./routes/preferencesRoutes";
 import roomRoutes from "./routes/roomsRoutes";
+import mealPlannerRoutes from "./routes/mealPlannerRoutes"; 
+import shoppingListRoutes from "./routes/shoppingListRoutes";
 import dotenv from "dotenv";
 import cors from "cors";
 import { cleanupInactivePeers } from "./controllers/roomsController";
@@ -50,6 +52,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/preferences', preferencesRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use("/api/meal-planner", mealPlannerRoutes); 
+app.use("/api/shopping-list", shoppingListRoutes);
+
 
 // development: use express to serve frontend files
 // production: use a dockerized nginx to serve frontend files
