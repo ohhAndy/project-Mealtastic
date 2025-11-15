@@ -14,6 +14,7 @@ export function getRecipeKey(id: string) {
 export function cacheSet(key: string, value: any, ttlSeconds = 0) {
   memcached.set(key, JSON.stringify(value), ttlSeconds, (err) => {
     if (err) console.log("Memcached SET error:", err);
+    console.log("Memcached SET: ", key);
   });
 }
 
@@ -22,6 +23,7 @@ export function cacheGet<T>(key: string): Promise<T | null> {
     memcached.get(key, (err, data) => {
       if (err || !data) return resolve(null);
       try {
+        console.log("Memcache GET: ", key);
         resolve(JSON.parse(data));
       } catch {
         resolve(null);
