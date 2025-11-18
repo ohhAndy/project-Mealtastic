@@ -231,7 +231,6 @@ export default function MealPlannerPage() {
     });
     setSwapModalOpen(true);
     setSearchQuery("");
-    searchRecipes("");
   }
 
   function openAddModal(date: string, mealType: MealType): void {
@@ -239,7 +238,6 @@ export default function MealPlannerPage() {
     setSelectedEntry(entry);
     setSwapModalOpen(true);
     setSearchQuery("");
-    searchRecipes("");
   }
 
   async function selectRecipe(recipeId: number): Promise<void> {
