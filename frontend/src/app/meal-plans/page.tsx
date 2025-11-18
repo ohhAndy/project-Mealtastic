@@ -224,7 +224,7 @@ export default function MealPlannerPage() {
 
   function openSwapModal(entry: MealEntry): void {
     setSelectedEntry({
-      id: entry.id,
+      id: entry.id, 
       date: entry.date,
       meal_type: entry.meal_type,
       plan_id: entry.plan_id,
@@ -496,7 +496,7 @@ export default function MealPlannerPage() {
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                   }}
-                  onKeyDown={handleKeyDown}
+                  onKeyDown={handleKeyPress}
                   className="pl-10"
                 />
               </div>
