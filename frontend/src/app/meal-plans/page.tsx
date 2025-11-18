@@ -202,12 +202,13 @@ export default function MealPlannerPage() {
   async function searchRecipes(query: string): Promise<void> {
     setSearching(true);
     try {
-      const res = await fetch(`/api/recipes/search?query=${query}?limit=10`, {
+      const res = await fetch(`/api/recipes/search?query=${query}?limit=10?page=0`, {
         method: "GET",
         credentials: "include",
       });
-      const data: { recipes?: Recipe[] } = await res.json();
-      setSearchResults(data.recipes || []);
+      const data = await res.json();
+      console.log(data);
+      setSearchResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Search error:", err);
     } finally {
