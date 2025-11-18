@@ -50,7 +50,7 @@ export default function NavBar() {
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
             <ChefHat className="h-8 w-8 text-primary" />
-            <span className="font-bold text-xl">MealPlanner</span>
+            <span className="font-bold text-xl">Mealtastic</span>
           </Link>
 
           <div className="flex items-center gap-4">
