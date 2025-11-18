@@ -60,7 +60,7 @@ export interface PlannedMeal {
   id: number;
   mealPlanId: number;
   recipeId: string;
-  dayOfWeek: number; // 0 = Monday, 6 = Sunday
+  dayOfWeek: number; 
   mealType: "breakfast" | "lunch" | "dinner";
   recipe: Recipe;
 }

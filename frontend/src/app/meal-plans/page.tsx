@@ -202,7 +202,7 @@ export default function MealPlannerPage() {
   async function searchRecipes(query: string): Promise<void> {
     setSearching(true);
     try {
-      const res = await fetch(`/api/recipes/search?query=${query}`, {
+      const res = await fetch(`/api/recipes/search?query=${query}?limit=10`, {
         method: "GET",
         credentials: "include",
       });
