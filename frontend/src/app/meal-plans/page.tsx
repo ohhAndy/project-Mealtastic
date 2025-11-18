@@ -199,10 +199,10 @@ export default function MealPlannerPage() {
     await updateMealEntry(entryId, null);
   }
 
-  async function searchRecipes(query: string): Promise<void> {
+  async function searchRecipes(): Promise<void> {
     setSearching(true);
     try {
-      const res = await fetch(`/api/recipes/search?query=${query}?limit=10?page=0`, {
+      const res = await fetch(`/api/recipes/search?query=${searchQuery}?limit=10?page=0`, {
         method: "GET",
         credentials: "include",
       });
@@ -215,6 +215,12 @@ export default function MealPlannerPage() {
       setSearching(false);
     }
   }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      searchRecipes();
+    }
+  };
 
   function openSwapModal(entry: MealEntry): void {
     setSelectedEntry({
@@ -491,10 +497,8 @@ export default function MealPlannerPage() {
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    if (selectedEntry) {
-                      searchRecipes(e.target.value);
-                    }
                   }}
+                  onKeyDown={handleKeyDown}
                   className="pl-10"
                 />
               </div>
