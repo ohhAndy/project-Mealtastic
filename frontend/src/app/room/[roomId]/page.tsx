@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Mic, MicOff, Video, VideoOff } from "lucide-react";
 
 type SignalMessage =
   | {
@@ -122,10 +121,6 @@ export default function RoomPage() {
   const [chatInput, setChatInput] = useState("");
   const [isOwner, setIsOwner] = useState(false);
   const [isSendingChat, setIsSendingChat] = useState(false);
-
-  // New state for A/V controls
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
 
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
@@ -546,30 +541,6 @@ export default function RoomPage() {
     setIsSendingChat(false);
   }
 
-  // Toggle video function
-  function toggleVideo() {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-
-    const videoTrack = stream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setIsVideoEnabled(videoTrack.enabled);
-    }
-  }
-
-  // Toggle audio function
-  function toggleAudio() {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-
-    const audioTrack = stream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setIsAudioEnabled(audioTrack.enabled);
-    }
-  }
-
   function cleanupAndLeave() {
     pollingAbort.current?.abort();
     pollingAbort.current = null;
@@ -637,50 +608,20 @@ export default function RoomPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {/* A/V Controls */}
-            <div className="flex justify-center gap-3">
-              <Button
-                variant={isVideoEnabled ? "default" : "destructive"}
-                size="lg"
-                onClick={toggleVideo}
-                className="w-14 h-14 rounded-full"
-              >
-                {isVideoEnabled ? (
-                  <Video className="w-5 h-5" />
-                ) : (
-                  <VideoOff className="w-5 h-5" />
-                )}
-              </Button>
-              <Button
-                variant={isAudioEnabled ? "default" : "destructive"}
-                size="lg"
-                onClick={toggleAudio}
-                className="w-14 h-14 rounded-full"
-              >
-                {isAudioEnabled ? (
-                  <Mic className="w-5 h-5" />
-                ) : (
-                  <MicOff className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <VideoTile
-                  id="localVideo"
-                  label="You"
-                  subLabel={peerId ?? ""}
-                  stream={localStreamRef.current}
-                  muted
-                /> 
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <VideoTile
+              id="localVideo"
+              label="You"
+              subLabel={peerId ?? ""}
+              stream={localStreamRef.current}
+              muted
+            /> 
 
-                {/* Remote videos */}
-                <RemoteVideoGrid
-                  remoteIds={remoteIds}
-                  remoteStreams={remoteStreams}
-                />
-            </div>
-          
+            {/* Remote videos */}
+            <RemoteVideoGrid
+              remoteIds={remoteIds}
+              remoteStreams={remoteStreams}
+            />
           </CardContent>
         </Card>
 
