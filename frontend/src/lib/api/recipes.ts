@@ -1,7 +1,5 @@
 import { RecipeSearchParams } from "@/types";
 
-const API = process.env.NEXT_PUBLIC_API_URL!;
-
 export async function searchRecipesAPI(
   params: RecipeSearchParams
 ) {
