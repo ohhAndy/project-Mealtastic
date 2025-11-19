@@ -172,7 +172,7 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
 
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
-    const recipe_id =   req.params.id;
+    const recipe_id = req.params.id;
     await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2::text);", [req.session.userId, recipe_id]);
     res.sendStatus(200);
   } catch (err){
