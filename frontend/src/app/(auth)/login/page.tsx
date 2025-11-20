@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { googleLogin, login } from "@/lib/api/auth";
+import { useRedirectIfAuthenticated } from "@/lib/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
-import { AxiosError } from "axios";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,11 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+
+  const { isLoading: isAuthLoading, user } = useRedirectIfAuthenticated('/recipes');
+  if (isAuthLoading || user) {
+    return null;
+  }
 
   const handleGoogleAuth = () => {
     googleLogin();

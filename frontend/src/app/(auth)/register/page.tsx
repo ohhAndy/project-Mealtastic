@@ -19,6 +19,7 @@ import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { googleLogin, register } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
+import { useRedirectIfAuthenticated } from "@/lib/hooks/useAuth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -30,6 +31,11 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
   });
+
+  const { isLoading: isAuthLoading, user } = useRedirectIfAuthenticated('/recipes');
+    if (isAuthLoading || user) {
+      return null;
+    }
 
   const handleGoogleAuth = () => {
     googleLogin();

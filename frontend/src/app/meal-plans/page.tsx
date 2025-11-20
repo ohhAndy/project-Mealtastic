@@ -207,7 +207,6 @@ export default function MealPlannerPage() {
         credentials: "include",
       });
       const data = await res.json();
-      console.log(data);
       setSearchResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Search error:", err);

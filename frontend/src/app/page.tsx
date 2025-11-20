@@ -1,11 +1,24 @@
-import Image from "next/image";
+'use client'
+
+import { useAuthStore } from "@/store/authStore";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        
-      </main>
-    </div>
-  );
+  const router = useRouter();
+  const { user, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (user) {
+        router.push('/recipes'); // logged-in users go here
+      } else {
+        router.push('/login'); // logged-out users go here
+      }
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return null; 
 }
