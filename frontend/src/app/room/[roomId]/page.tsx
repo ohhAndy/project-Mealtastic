@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useRequireAuth } from "@/lib/hooks/useAuth";
 
 type SignalMessage =
   | {
@@ -65,6 +66,9 @@ function VideoTile(props: {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  const { user, isLoading: authLoading } = useRequireAuth();
+  if (authLoading || !user) return null;
 
   return (
     <div className="relative aspect-video w-full rounded-xl border border-gray-300 bg-black overflow-hidden shadow-sm">

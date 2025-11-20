@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRequireAuth } from "@/lib/hooks/useAuth";
 
 const DAYS = [
   "Monday",
@@ -206,7 +207,7 @@ export default function MealPlannerPage() {
         method: "GET",
         credentials: "include",
       });
-      const data = await res.json();
+      const data = await res.json();  
       setSearchResults(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Search error:", err);
@@ -260,6 +261,9 @@ export default function MealPlannerPage() {
   }
 
   const weekDates = getWeekDates();
+
+  const { user, isLoading: authLoading } = useRequireAuth();
+  if (authLoading || !user) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">

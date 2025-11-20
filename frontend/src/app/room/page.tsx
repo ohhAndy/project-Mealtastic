@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRequireAuth } from "@/lib/hooks/useAuth";
 
 interface Room {
   id: string;
@@ -22,6 +23,9 @@ export default function RoomsPage() {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  const { user, isLoading: authLoading } = useRequireAuth();
+  if (authLoading || !user) return null;
 
   async function fetchRooms() {
     try {
