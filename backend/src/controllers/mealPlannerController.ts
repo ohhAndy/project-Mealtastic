@@ -40,6 +40,18 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
 
     const weekStart = getWeekStart();
 
+    const checkResult = await pool.query(
+      "SELECT * FROM meal_plans WHERE user_id = $1 AND week_start = $2",
+      [userId, weekStart]
+    );
+    if (checkResult.rows.length > 0) {
+      const planId = checkResult.rows[0].id;
+      await pool.query(
+        "DELETE FROM meal_plans WHERE id = $1 AND user_id = $2",
+        [planId, userId]
+      );
+    }
+
     // 1️⃣ Fetch user preferences
     const prefResult = await pool.query(
       "SELECT * FROM user_preferences WHERE user_id = $1 LIMIT 1;",
