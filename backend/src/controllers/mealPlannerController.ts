@@ -12,9 +12,9 @@ function getWeekStart(): string {
 }
 
 const MEAL_TIMES = {
-  breakfast: "08:00",
-  lunch: "12:00",
-  dinner: "18:00",
+  breakfast: "13:00",
+  lunch: "17:00",
+  dinner: "23:00",
 };
 
 type MealPlanEntry = {
@@ -248,24 +248,22 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       )
     );
 
-    const insertPromises = result.rows.map((entry: MealPlanEntry) => {
+    for (const entry of result.rows as MealPlanEntry[]) {
       const time = MEAL_TIMES[entry.meal_type];
-      if (!entry.date || !time) return null;
+      if (!entry.date || !time) continue;
 
       const dateStr = entry.date.toISOString().split("T")[0];
       const startDateTime = `${dateStr}T${time}:00Z`;
 
       const startDate = new Date(startDateTime);
-      if (isNaN(startDate.getTime())) return null;
+      if (isNaN(startDate.getTime())) continue;
 
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
       const eventKey = `${startDateTime}_${entry.title}`;
-      console.log(eventKey)
-      if (existingEventKeys.has(eventKey)) return null;
+      if (existingEventKeys.has(eventKey)) continue;
 
-      console.log(eventKey)
-      return calendar.events.insert({
+      await calendar.events.insert({
         calendarId: "primary",
         requestBody: {
           summary: entry.title,
@@ -275,9 +273,9 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
           extendedProperties: { private: { mealPlanId: planId } },
         },
       });
-    });
 
-    await Promise.all(insertPromises.filter(Boolean));
+      await new Promise(r => setTimeout(r, 150));
+    }
 
     res.sendStatus(200);
   } catch (err) {
