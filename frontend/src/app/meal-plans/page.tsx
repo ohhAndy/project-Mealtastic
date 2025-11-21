@@ -216,6 +216,22 @@ export default function MealPlannerPage() {
     }
   }
 
+  async function exportToGoogleCalendar(): Promise<void> {
+    if (!mealPlan || !user?.google_id) return;
+    try {
+      setLoading(true);
+      await fetch(`/api/meal-planner/export/google?week_start=${mealPlan.week_start}`, {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+    } catch (err) {
+      console.error("Google Calendar Export error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       searchRecipes();
@@ -348,6 +364,17 @@ export default function MealPlannerPage() {
                   <Trash2 className="w-4 h-4" />
                   Delete Plan
                 </Button>
+                <>
+                <Button
+                  onClick={exportToGoogleCalendar}
+                  disabled={loading || !user?.google_id}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Export to Google Calendar
+                </Button>
+              </>
               </>
             )}
           </div>

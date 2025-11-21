@@ -17,4 +17,6 @@ router.patch('/entry/:id', isAuthenticated, checkIdUUID, checkRecipeId, mealPlan
 // DELETE /api/meal-planner/:id
 router.delete('/:id', isAuthenticated, checkIdUUID, mealPlannerCtrl.deleteMealPlan);
 
+router.put('/export/google', isAuthenticated, checkWeekStart, mealPlannerCtrl.exportMealPlanToGoogleCalendar);
+
 export default router;

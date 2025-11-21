@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { getGoogleCalendarClient } from "../config/googleCalendar";
 import pool from "../db";
 
 // Utility: get start of current week (Monday)
@@ -9,6 +10,25 @@ function getWeekStart(): string {
   monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
   return monday.toISOString().split("T")[0];
 }
+
+const MEAL_TIMES = {
+  breakfast: "08:00:00",
+  lunch: "12:00:00",
+  dinner: "18:00:00",
+};
+
+type MealPlanEntry = {
+  title: string,
+  image_url: string,
+  source: string,
+  id: string,
+  plan_id: string,
+  date: Date,
+  meal_type: "breakfast" | "lunch" | "dinner",
+  recipe_id: string
+}
+
+const WEBSITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL!;
 
 /**
  * Generate a weekly meal plan based on user's saved recipes and preferences.
@@ -171,6 +191,86 @@ export async function deleteMealPlan(req: Request, res: Response, next: NextFunc
     res.sendStatus(200);
   } catch (err) {
     console.error("Error deleting meal plan:", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
+  }
+}
+
+export async function exportMealPlanToGoogleCalendar(req: Request, res: Response) {
+  try {
+    const userId = req.session.userId;
+    if (!userId) return res.status(401).end("Unauthorized");
+
+    const weekStart = req.query.week_start as string || getWeekStart();
+    const result = await pool.query(
+      `
+      SELECT e.*, r.title, r.image_url,, p.id AS plan_id
+      FROM meal_plan_entries e
+      JOIN meal_plans p ON e.plan_id = p.id
+      JOIN recipes r ON e.recipe_id = r.id
+      WHERE p.user_id = $1 AND p.week_start = $2
+      ORDER BY e.date, e.meal_type;
+      `,
+      [userId, weekStart]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(404).json({ message: "No meal plan found for this week." });
+
+    const userResult = await pool.query(
+      `SELECT google_access_token, google_refresh_token FROM users WHERE id=$1;`,
+      [userId]
+    );
+    const user = userResult.rows[0];
+    if (!user?.google_refresh_token)
+      return res.status(400).json({ error: "User has not connected Google Calendar." });
+
+    const calendar = getGoogleCalendarClient({
+      access_token: user.google_access_token,
+      refresh_token: user.google_refresh_token,
+    });
+
+    const planId = result.rows[0].plan_id;
+
+    const existingEventsRes = await calendar.events.list({
+      calendarId: "primary",
+      privateExtendedProperty: [`mealPlanId=${planId}`],
+      timeMin: new Date(weekStart).toISOString(),
+      timeMax: new Date(new Date(weekStart).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const existingEventKeys = new Set(
+      (existingEventsRes.data.items || []).map(
+        (e) => `${e.start?.dateTime}_${e.summary}`
+      )
+    );
+
+    const insertPromises = result.rows.map((entry: MealPlanEntry) => {
+      const time = MEAL_TIMES[entry.meal_type];
+      const startDateTime = `${entry.date}T${time}`;
+      const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60 * 1000)
+        .toISOString();
+
+      const eventKey = `${startDateTime}_${entry.title}`;
+      if (existingEventKeys.has(eventKey)) return null; // skip duplicates
+
+      return calendar.events.insert({
+        calendarId: "primary",
+        requestBody: {
+          summary: entry.title,
+          description: `${WEBSITE_URL}/recipes/${entry.recipe_id}` || "",
+          start: { dateTime: startDateTime },
+          end: { dateTime: endDateTime },
+          extendedProperties: { private: { mealPlanId: planId } },
+        },
+      });
+    });
+
+    await Promise.all(insertPromises.filter(Boolean));
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Error exporting meal plan:", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
