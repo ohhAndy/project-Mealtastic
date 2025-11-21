@@ -180,9 +180,7 @@ export async function updateMealPlanEntry(req: Request, res: Response, next: Nex
 export async function deleteMealPlan(req: Request, res: Response, next: NextFunction) {
   try {
     const planId = parseInt(req.params.id);
-    console.log(planId)
     const userId = req.session.userId;
-    console.log(userId)
     if (!planId || !userId) return res.status(400).end("Invalid request");
 
     await pool.query(
@@ -252,19 +250,18 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
     const insertPromises = result.rows.map((entry: MealPlanEntry) => {
       const time = MEAL_TIMES[entry.meal_type];
-      console.log(entry)
-      if (!entry.date || !time) return null; // skip invalid entries
+      if (!entry.date || !time) return null;
 
-      // Force ISO format with UTC
-      const startDateTime = `${entry.date}T${time}:00Z`;
-      console.log(startDateTime)
+      const dateStr = entry.date.toISOString().split("T")[0];
+      const startDateTime = `${dateStr}T${time}:00Z`;
+
       const startDate = new Date(startDateTime);
-      if (isNaN(startDate.getTime())) return null; // skip invalid date
+      if (isNaN(startDate.getTime())) return null;
 
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
       const eventKey = `${startDateTime}_${entry.title}`;
-      if (existingEventKeys.has(eventKey)) return null; // skip duplicates
+      if (existingEventKeys.has(eventKey)) return null;
 
       return calendar.events.insert({
         calendarId: "primary",
