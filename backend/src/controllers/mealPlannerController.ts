@@ -48,8 +48,8 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
     if (checkResult.rows.length > 0) {
       const planId = checkResult.rows[0].id;
       await pool.query(
-        "DELETE FROM meal_plans WHERE id = $1 AND user_id = $2",
-        [planId, userId]
+        "DELETE FROM meal_plan_entries WHERE plan_id = $1",
+        [planId]
       );
     }
 
@@ -89,10 +89,11 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
     const planResult = await pool.query(
       `INSERT INTO meal_plans (user_id, week_start, generated)
        VALUES ($1, $2, TRUE)
+       ON CONFLICT (user_id, week_start) DO NOTHING
        RETURNING id;`,
       [userId, weekStart]
     );
-    const planId = planResult.rows[0].id;
+    const planId = planResult.rows[0].id || checkResult.rows[0].id;
 
     // 5️⃣ Generate entries (7 days × 3 meals)
     const mealTypes = ["breakfast", "lunch", "dinner"];
@@ -274,8 +275,6 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       if (isNaN(startDate.getTime())) continue;
 
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
-
-
 
       if (existingEventTimes.has(startDateTime)) {
         const existingEvent = existingEventTimes.get(startDateTime);
