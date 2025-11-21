@@ -292,7 +292,7 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
             },
           });
         }
-        else continue;
+        continue;
       }
       await calendar.events.insert({
         calendarId: "primary",
