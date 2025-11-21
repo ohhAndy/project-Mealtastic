@@ -260,6 +260,8 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       )
     );
 
+    console.log(existingEventKeys);
+
     for (const entry of result.rows as MealPlanEntry[]) {
       const time = MEAL_TIMES[entry.meal_type];
       if (!entry.date || !time) continue;
@@ -273,6 +275,7 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
       const eventKey = `${startDateTime}_${entry.title}`;
+      console.log(eventKey);
       if (existingEventKeys.has(eventKey)) continue;
 
       await calendar.events.insert({
