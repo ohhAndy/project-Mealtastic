@@ -184,8 +184,8 @@ export default function MealPlannerPage() {
     recipeId: number | null
   ): Promise<void> {
     try {
-      await fetch(`/api/meal-planner/entries/${entryId}`, {
-        method: "PUT",
+      await fetch(`/api/meal-planner/entry/${entryId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recipe_id: recipeId }),
         credentials: "include",

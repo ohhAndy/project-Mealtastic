@@ -154,7 +154,7 @@ export async function getMealPlan(req: Request, res: Response, next: NextFunctio
  */
 export async function updateMealPlanEntry(req: Request, res: Response, next: NextFunction) {
   try {
-    const entryId = parseInt(req.params.id);
+    const entryId = req.params.id;
     const { recipe_id } = req.body;
     if (!entryId)
       return res.status(400).end("Missing entry ID");
@@ -179,7 +179,7 @@ export async function updateMealPlanEntry(req: Request, res: Response, next: Nex
  */
 export async function deleteMealPlan(req: Request, res: Response, next: NextFunction) {
   try {
-    const planId = parseInt(req.params.id);
+    const planId = req.params.id;
     const userId = req.session.userId;
     if (!planId || !userId) return res.status(400).end("Invalid request");
 
@@ -261,8 +261,10 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
       const eventKey = `${startDateTime}_${entry.title}`;
+      console.log(eventKey)
       if (existingEventKeys.has(eventKey)) return null;
 
+      console.log(eventKey)
       return calendar.events.insert({
         calendarId: "primary",
         requestBody: {
