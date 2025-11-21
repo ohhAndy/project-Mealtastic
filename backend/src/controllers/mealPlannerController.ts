@@ -256,8 +256,13 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
     const existingEventKeys = new Set(
       (existingEventsRes.data.items || []).map(
-        (e) => `${e.start?.dateTime}_${e.summary}`
-      )
+        ev => {
+          if (ev.start) {
+            const startUTC = new Date(ev.start.dateTime as string).toISOString(); 
+            return `${startUTC}_${ev.summary}`;
+          }
+          return `_${ev.summary}`;
+      })
     );
 
     console.log(existingEventKeys);
