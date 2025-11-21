@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { getGoogleCalendarClient } from "../config/googleCalendar";
 import pool from "../db";
+import { calendar_v3 } from "googleapis";
 
 // Utility: get start of current week (Monday)
 function getWeekStart(): string {
@@ -254,18 +255,13 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       timeMax: endDate.toISOString(),
     });
 
-    const existingEventKeys = new Set(
-      (existingEventsRes.data.items || []).map(
-        ev => {
-          if (ev.start) {
-            const startUTC = new Date(ev.start.dateTime as string).toISOString(); 
-            return `${startUTC}_${ev.summary}`;
-          }
-          return `_${ev.summary}`;
-      })
-    );
+    const existingEventTimes = new Map<string, calendar_v3.Schema$Event>();
 
-    console.log(existingEventKeys);
+    for (const ev of existingEventsRes.data.items || []) {
+      if (!ev.start?.dateTime) continue;
+      const startUTC = new Date(ev.start.dateTime).toISOString().replace('00.000Z', '00Z');
+      existingEventTimes.set(startUTC, ev);
+    }
 
     for (const entry of result.rows as MealPlanEntry[]) {
       const time = MEAL_TIMES[entry.meal_type];
@@ -279,10 +275,25 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
-      const eventKey = `${startDateTime.replace('00Z', '00.000Z')}_${entry.title}`;
-      console.log(eventKey);
-      if (existingEventKeys.has(eventKey)) continue;
 
+
+      if (existingEventTimes.has(startDateTime)) {
+        const existingEvent = existingEventTimes.get(startDateTime);
+        if (existingEvent && existingEvent.summary !== entry.title) {
+          await calendar.events.update({
+            calendarId: "primary",
+            eventId: existingEvent.id!,
+            requestBody: {
+              summary: entry.title,
+              description: `${WEBSITE_URL}/recipes/${entry.recipe_id}`,
+              start: { dateTime: startDateTime },
+              end: { dateTime: endDateTime },
+              extendedProperties: { private: { mealPlanId: planId } },
+            },
+          });
+        }
+        else continue;
+      }
       await calendar.events.insert({
         calendarId: "primary",
         requestBody: {
