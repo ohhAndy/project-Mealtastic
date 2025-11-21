@@ -272,7 +272,7 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
       if (!entry.date || !time) continue;
 
       const dateStr = entry.date.toISOString().split("T")[0];
-      const startDateTime = `${dateStr}T${time}:00Z`;
+      const startDateTime = `${dateStr}T${time}:000Z`;
 
       const startDate = new Date(startDateTime);
       if (isNaN(startDate.getTime())) continue;
