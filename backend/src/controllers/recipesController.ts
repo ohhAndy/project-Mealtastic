@@ -170,6 +170,52 @@ export async function getRecipe(req: Request, res: Response, next: NextFunction)
   }
 }
 
+export async function createRecipe(req: Request, res: Response, next: NextFunction) {
+  // exploit the fact that the ids for spoonacular are int. We store them as text allowing flexibility to make
+  // our own ids to insert into the db
+  const title = req.body.title;
+  const image = req.body.image;
+  const prep_time = req.body.readyInMinutes;
+  const cuisines = req.body.cuisines;
+  const diets = req.body.diets;
+  const servings = req.body.servings;
+  const extendedIngredients = req.body.extendedIngredients;
+  const analyzedInstructions = req.body.analyzedInstructions;
+
+  try {
+    let result = await pool.query("INSERT INTO recipes (title, image_url, prep_time, cuisines, diets) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING RETURNING id",
+      [
+        title,
+        image,
+        prep_time,
+        cuisines,
+        diets
+      ]
+    );
+
+    const id = result.rows[0].id;
+    const cached_data = JSON.stringify({
+      id: id,
+      title: title,
+      image: image,
+      servings: servings,
+      extendedIngredients: extendedIngredients,
+      analyzedInstructions: analyzedInstructions,
+    });
+
+    result = await pool.query("UPDATE recipes SET cached_data = $1 WHERE id = $2 RETURNING *;", [cached_data, id]);
+    cacheSet(getRecipeKey(id), result.rows[0], 0);
+    return res.json(result.rows[0]);
+  } catch (err) {
+    if (err instanceof Error){
+      console.log(err);
+      return res.status(500).end(err.message);
+    }
+    return res.status(500).end(err);
+  }
+  
+}
+
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
     const recipe_id = req.params.id;

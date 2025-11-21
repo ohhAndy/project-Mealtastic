@@ -5,6 +5,7 @@ import { checkSearchQuery, checkId, checkPage, checkLimit, checkRating, sanitize
 
 const router = Router();
 
+router.post('/', isAuthenticated, recipeCtrl.createRecipe);
 router.get('/search', isAuthenticated, checkSearchQuery, checkPage, checkLimit, recipeCtrl.searchRecipes);
 router.get('/saved', isAuthenticated, checkPage, checkLimit, recipeCtrl.getSavedRecipes);
 router.get('/:id', isAuthenticated, checkId, recipeCtrl.getRecipe);
