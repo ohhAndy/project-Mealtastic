@@ -232,11 +232,14 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
     const planId = result.rows[0].plan_id;
 
+    const startDate = new Date(`${weekStart}T00:00:00Z`); // start of week in UTC
+    const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days later
+
     const existingEventsRes = await calendar.events.list({
       calendarId: "primary",
       privateExtendedProperty: [`mealPlanId=${planId}`],
-      timeMin: new Date(weekStart).toISOString(),
-      timeMax: new Date(new Date(weekStart).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
     });
 
     const existingEventKeys = new Set(
