@@ -250,9 +250,14 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
     const insertPromises = result.rows.map((entry: MealPlanEntry) => {
       const time = MEAL_TIMES[entry.meal_type];
-      const startDateTime = `${entry.date}T${time}`;
-      const endDateTime = new Date(new Date(startDateTime).getTime() + 60 * 60 * 1000)
-        .toISOString();
+      if (!entry.date || !time) return null; // skip invalid entries
+
+      // Force ISO format with UTC
+      const startDateTime = `${entry.date}T${time}:00Z`;
+      const startDate = new Date(startDateTime);
+      if (isNaN(startDate.getTime())) return null; // skip invalid date
+
+      const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
       const eventKey = `${startDateTime}_${entry.title}`;
       if (existingEventKeys.has(eventKey)) return null; // skip duplicates
