@@ -12,9 +12,9 @@ function getWeekStart(): string {
 }
 
 const MEAL_TIMES = {
-  breakfast: "08:00:00",
-  lunch: "12:00:00",
-  dinner: "18:00:00",
+  breakfast: "08:00",
+  lunch: "12:00",
+  dinner: "18:00",
 };
 
 type MealPlanEntry = {
