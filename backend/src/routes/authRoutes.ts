@@ -11,7 +11,11 @@ router.post("/logout", authCtrl.logout);
 router.get("/profile", authCtrl.profile);
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: ["profile", "email", "https://www.googleapis.com/auth/calendar.events"],
+    accessType: "offline",
+    prompt: "consent"
+  })
 );
 router.get(
   "/google/callback",

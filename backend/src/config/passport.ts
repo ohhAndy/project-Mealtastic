@@ -37,12 +37,18 @@ passport.use(
           const existing_email = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
 
           if (existing_email.rows.length > 0) {
-
-            user = await pool.query('UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *', [googleId, email]);
+            user = await pool.query('UPDATE users SET google_id = $1, google_access_token = $2, google_refresh_token = $3 WHERE email = $4 RETURNING *', [googleId, _accessToken, _refreshToken, email]);
           } else {
-            user = await pool.query(`INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING *`, [name, email, googleId]);
+            user = await pool.query(`INSERT INTO users (name, email, google_id, google_access_token, google_refresh_token) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [name, email, googleId, _accessToken, _refreshToken]);
             await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.rows[0].id]);
           }
+        }
+        else {
+          // update refresh/access tokens
+          user = await pool.query(
+            'UPDATE users SET google_access_token = $1, google_refresh_token = $2 WHERE google_id = $3 RETURNING *',
+            [_accessToken, _refreshToken, googleId]
+          );
         }
 
         done(null, user.rows[0]);

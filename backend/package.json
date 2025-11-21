@@ -28,6 +28,7 @@
     "express": "^5.1.0",
     "express-longpoll": "^0.0.6",
     "express-session": "^1.18.2",
+    "googleapis": "^166.0.0",
     "memcached": "^2.2.2",
     "node-cron": "^4.2.1",
     "passport": "^0.7.0",
