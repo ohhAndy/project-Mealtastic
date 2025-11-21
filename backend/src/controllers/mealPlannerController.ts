@@ -93,7 +93,7 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
        RETURNING id;`,
       [userId, weekStart]
     );
-    const planId = planResult.rows[0].id || checkResult.rows[0].id;
+    const planId = planResult.rows[0].id ? planResult.rows[0].id :  checkResult.rows[0].id;
 
     // 5️⃣ Generate entries (7 days × 3 meals)
     const mealTypes = ["breakfast", "lunch", "dinner"];

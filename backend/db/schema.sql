@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS meal_plans (
   week_start DATE NOT NULL,
   generated BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
+  UNIQUE (user_id, week_start)
 );
 
 -- =========================
