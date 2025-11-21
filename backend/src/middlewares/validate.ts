@@ -31,7 +31,7 @@ export function checkSearchQuery(req: Request, res: Response, next: NextFunction
 }
 
 export function checkId(req: Request, res: Response, next: NextFunction) {
-    if (!validator.isNumeric(req.params.id)) return res.status(400).end("bad id param");
+    if (!validator.isNumeric(req.params.id) && !validator.isUUID(req.params.id)) return res.status(400).end("bad id param");
     next();
 }
 
@@ -109,6 +109,6 @@ export function checkWeekStart(req: Request, res: Response, next: NextFunction) 
 }
 
 export function checkRecipeId(req: Request, res: Response, next: NextFunction) {
-    if (!validator.isNumeric(req.body.recipe_id)) return res.status(400).end("bad recipe_id input");
+    if (req.body.recipe_id && !validator.isNumeric(req.body.recipe_id) && !validator.isUUID(req.body.recipe_id)) return res.status(400).end("bad recipe_id input");
     next();
 }
