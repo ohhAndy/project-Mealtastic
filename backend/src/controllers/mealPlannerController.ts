@@ -204,7 +204,7 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
     const weekStart = req.query.week_start as string || getWeekStart();
     const result = await pool.query(
       `
-      SELECT e.*, r.title, r.image_url,, p.id AS plan_id
+      SELECT e.*, r.title, r.image_url, p.id AS plan_id
       FROM meal_plan_entries e
       JOIN meal_plans p ON e.plan_id = p.id
       JOIN recipes r ON e.recipe_id = r.id
