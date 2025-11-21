@@ -279,7 +279,7 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
 
       const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
-      const eventKey = `${startDateTime.replace('00Z', '000Z')}_${entry.title}`;
+      const eventKey = `${startDateTime.replace('00Z', '00.000Z')}_${entry.title}`;
       console.log(eventKey);
       if (existingEventKeys.has(eventKey)) continue;
 
