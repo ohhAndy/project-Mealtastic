@@ -41,12 +41,13 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
 
     const weekStart = getWeekStart();
 
+    let planId = ""
     const checkResult = await pool.query(
       "SELECT * FROM meal_plans WHERE user_id = $1 AND week_start = $2",
       [userId, weekStart]
     );
     if (checkResult.rows.length > 0) {
-      const planId = checkResult.rows[0].id;
+      planId = checkResult.rows[0].id;
       await pool.query(
         "DELETE FROM meal_plan_entries WHERE plan_id = $1",
         [planId]
@@ -93,7 +94,7 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
        RETURNING id;`,
       [userId, weekStart]
     );
-    const planId = planResult.rows[0].id ? planResult.rows[0].id :  checkResult.rows[0].id;
+    if (planResult.rows.length > 0) planId = planResult.rows[0].id;
 
     // 5️⃣ Generate entries (7 days × 3 meals)
     const mealTypes = ["breakfast", "lunch", "dinner"];
