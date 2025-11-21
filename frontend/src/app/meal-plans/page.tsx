@@ -221,7 +221,7 @@ export default function MealPlannerPage() {
     try {
       setLoading(true);
       await fetch(`/api/meal-planner/export/google?week_start=${mealPlan.week_start}`, {
-          method: "POST",
+          method: "PUT",
           credentials: "include",
         }
       );
