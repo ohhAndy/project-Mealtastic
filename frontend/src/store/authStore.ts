@@ -4,7 +4,6 @@
       id: string;
       email: string;
       name: string;
-      google_id?: string | null | undefined;
   }
 
   interface AuthState {

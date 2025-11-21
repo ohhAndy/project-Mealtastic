@@ -217,7 +217,7 @@ export default function MealPlannerPage() {
   }
 
   async function exportToGoogleCalendar(): Promise<void> {
-    if (!mealPlan || !user?.google_id) return;
+    if (!mealPlan) return;
     try {
       setLoading(true);
       await fetch(`/api/meal-planner/export/google?week_start=${mealPlan.week_start}`, {
@@ -226,7 +226,7 @@ export default function MealPlannerPage() {
         }
       );
     } catch (err) {
-      console.error("Google Calendar Export error:", err);
+      console.error("Google Calendar Export error. Make sure to have logged in using Google:", err);
     } finally {
       setLoading(false);
     }
@@ -367,7 +367,7 @@ export default function MealPlannerPage() {
                 <>
                 <Button
                   onClick={exportToGoogleCalendar}
-                  disabled={loading || !user?.google_id}
+                  disabled={loading}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
