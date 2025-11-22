@@ -2,7 +2,7 @@
 
 import { logout } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
-import { Calendar, ChefHat, LogOut, Search, Settings } from "lucide-react";
+import { Calendar, ChefHat, LogOut, Search, Settings, CheckCircle, CameraIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "../ui/button";
@@ -38,7 +38,8 @@ export default function NavBar() {
     { href: "/recipes", label: "Recipes", icon: Search },
     { href: "/meal-plans", label: "Meal Plans", icon: Calendar },
     { href: "/saved", label: "Saved", icon: ChefHat },
-    { href: "/room", label: "Cook Rooms", icon: ChefHat},
+    { href: "/room", label: "Cook Rooms", icon: CameraIcon },
+    { href: "/shopping-lists", label: "Shopping Lists", icon: CheckCircle }
   ];
 
   const isActive = (path: string) => pathname?.startsWith(path);
