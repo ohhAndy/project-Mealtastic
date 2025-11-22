@@ -180,6 +180,8 @@ export async function getShoppingList(req: Request, res: Response, next: NextFun
       [userId, plan_id]
     );
 
+    console.log(result.rows)
+
     res.json({ items: result.rows });
   } catch (err) {
     console.error("Error fetching shopping list:", err);
