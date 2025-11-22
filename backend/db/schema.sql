@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
   plan_id UUID REFERENCES meal_plans(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
+  UNIQUE (plan_id, user_id)
 );
 
 -- =========================
