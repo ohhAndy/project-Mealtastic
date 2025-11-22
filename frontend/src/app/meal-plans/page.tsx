@@ -249,8 +249,8 @@ export default function MealPlannerPage() {
         const text = await res.text();
         throw new Error(text || "Failed to generate shopping list");
       }
-      const data = await res.json(); // assuming the response includes the shopping list ID
-      router.push(`/shopping-lists/${data.id}`);
+      const data = await res.json();
+      router.push(`/shopping-lists/${data.list_id}`);
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "Failed to generate shopping list");

@@ -79,7 +79,15 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
     const page = req.query.page ? parseInt(req.query.page as string) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
     const result = await pool.query("SELECT * FROM rooms LIMIT $1 OFFSET $2;", [limit, page * limit]);
-    return res.json(result.rows);
+    const countResult = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM rooms
+      `,
+    );
+    const totalItems = parseInt(countResult.rows[0].total, 10);
+    const totalPages = Math.ceil(totalItems / limit);
+    return res.json({rooms: result.rows, totalItems: totalItems, totalPages: totalPages });
   }
   catch(err) {
     if (err instanceof Error) {

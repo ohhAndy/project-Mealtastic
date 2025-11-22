@@ -195,6 +195,18 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
     const page = req.query.page ? parseInt(req.query.page as string) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
 
+    const countResult = await pool.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM shopping_lists s
+      WHERE s.user_id = $1
+      `,
+      [userId]
+    );
+
+    const totalItems = parseInt(countResult.rows[0].total, 10);
+    const totalPages = Math.ceil(totalItems / limit);
+
     const result = await pool.query(
       `
       SELECT s.*, m.week_start
@@ -206,8 +218,10 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
       `,
       [userId, limit, limit * page]
     );
+    
+    console.log(result.rows);
 
-    res.json({ lists: result.rows });
+    res.json({ lists: result.rows, totalItems: totalItems, totalPages: totalPages });
   } catch (err) {
     console.error("Error fetching user shopping lists:", err);
     if (err instanceof Error) return res.status(500).end(err.message);
