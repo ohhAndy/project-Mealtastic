@@ -17,11 +17,11 @@ type ShoppingItem = {
 };
 
 interface ShoppingListPageProps {
-  params: { page_id: string };
+  params: { plan_id: string };
 }
 
 export default function ShoppingListPage({ params }: ShoppingListPageProps) {
-  const { page_id } = params;
+  const { plan_id } = params;
   const { user, isLoading: authLoading } = useRequireAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,15 +29,15 @@ export default function ShoppingListPage({ params }: ShoppingListPageProps) {
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!page_id) return;
+    if (!plan_id) return;
     fetchShoppingList();
-  }, [page_id]);
+  }, [plan_id]);
 
   const fetchShoppingList = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/shopping-list/${page_id}`, {
+      const res = await fetch(`/api/shopping-list/${plan_id}`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch shopping list");
