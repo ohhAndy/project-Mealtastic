@@ -76,7 +76,9 @@ export async function createRoom(req: Request, res: Response, next: NextFunction
 
 export async function getRooms(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await pool.query("SELECT * FROM rooms;");
+    const page = req.query.page ? parseInt(req.query.page as string) : 0;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
+    const result = await pool.query("SELECT * FROM rooms LIMIT $1 OFFSET $2;", [limit, page * limit]);
     return res.json(result.rows);
   }
   catch(err) {

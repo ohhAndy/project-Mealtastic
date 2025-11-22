@@ -16,30 +16,38 @@ interface Room {
 
 export default function RoomsPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useRequireAuth();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
-  const [ fetching, setFetching ] = useState(true);
+  const [fetching, setFetching] = useState(true);
+  const [page, setPage] = useState(1);
+  const limit = 9;
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
-    fetchRooms();
-  }, []);
+    fetchRooms(page);
+  }, [page]);
 
-  const { user, isLoading: authLoading } = useRequireAuth();
   if (authLoading || !user) return null;
 
-  async function fetchRooms() {
+  async function fetchRooms(pageToFetch: number) {
+    setFetching(true);
     try {
-      const res = await fetch(`/api/rooms`, { credentials: "include" });
+      const res = await fetch(`/api/rooms?page=${pageToFetch}&limit=${limit}`, {
+        credentials: "include",
+      });
       const data = await res.json();
+
       if (res.ok) {
-        setRooms(data);
-        console.log("Fetched" + data);
-      } else toast.error(data.error || "Failed to load rooms");
-    } catch {
+        setRooms(data.rooms || []);
+        setTotalPages(data.totalPages || 1);
+      } else {
+        toast.error(data.error || "Failed to load rooms");
+      }
+    } catch (err) {
       toast.error("Server not reachable");
-    }
-    finally {
-      setFetching(false)
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -54,8 +62,10 @@ export default function RoomsPage() {
       const data = await res.json();
       if (res.ok) {
         toast.success("Room created");
-        setRooms((prev) => [...prev, data]);
-      } else toast.error(data.error || "Failed to create room");
+        fetchRooms(page);
+      } else {
+        toast.error(data.error || "Failed to create room");
+      }
     } catch {
       toast.error("Network error");
     } finally {
@@ -113,31 +123,54 @@ export default function RoomsPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-                {rooms.map((room) => (
-                  <Card
-                    key={room.id}
-                    className="border shadow-sm hover:shadow-md transition rounded-xl"
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                  {rooms.map((room) => (
+                    <Card
+                      key={room.id}
+                      className="border shadow-sm hover:shadow-md transition rounded-xl"
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-lg text-slate-700">
+                          Room #{room.id.slice(0, 6)}
+                        </CardTitle>
+                        <p className="text-xs text-slate-500">
+                          Hosted by {room.owner_id || "Anonymous"}
+                        </p>
+                      </CardHeader>
+                      <CardContent className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleJoinRoom(room.id)}
+                        >
+                          Join Room
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="flex justify-center items-center gap-3 mt-8">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
                   >
-                    <CardHeader>
-                      <CardTitle className="text-lg text-slate-700">
-                        Room #{room.id.slice(0, 6)}
-                      </CardTitle>
-                      <p className="text-xs text-slate-500">
-                        Hosted by {room.owner_id || "Anonymous"}
-                      </p>
-                    </CardHeader>
-                    <CardContent className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleJoinRoom(room.id)}
-                      >
-                        Join Room
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                    Previous
+                  </Button>
+
+                  <span className="px-4 py-2 bg-white rounded-md shadow-sm font-medium">
+                    Page {page} of {totalPages}
+                  </span>
+
+                  <Button
+                    variant="outline"
+                    disabled={page === totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

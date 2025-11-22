@@ -21,6 +21,9 @@ export default function ShoppingListsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [totalPages, setTotalPages] = useState(1);
 
   const today = new Date();
   const currentWeekStart = new Date(today);
@@ -30,17 +33,21 @@ export default function ShoppingListsPage() {
 
   useEffect(() => {
     if (!user) return;
-    fetchLists();
-  }, [user]);
+    fetchLists(page);
+  }, [user, page]);
 
-  const fetchLists = async () => {
+  const fetchLists = async (pageToFetch: number) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/shopping-list`, { credentials: "include" });
+      const res = await fetch(
+        `/api/shopping-list?page=${pageToFetch}&limit=${limit}`,
+        { credentials: "include" }
+      );
       if (!res.ok) throw new Error("Failed to fetch shopping lists");
       const data = await res.json();
       setLists(data.lists || []);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -58,9 +65,8 @@ export default function ShoppingListsPage() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to delete shopping list");
-      setLists(prev => prev.filter(l => l.id !== listId));
+      fetchLists(page);
     } catch (err) {
-      console.error(err);
       alert(err instanceof Error ? err.message : "Failed to delete");
     } finally {
       setDeletingId(null);
@@ -75,10 +81,9 @@ export default function ShoppingListsPage() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to generate shopping list");
-      await fetchLists();
+      fetchLists(page);
     } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : "Failed to generate list");
+      alert(err instanceof Error ? err.message : "Failed to generate");
     } finally {
       setGenerating(false);
     }
@@ -96,7 +101,9 @@ export default function ShoppingListsPage() {
 
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
-            <AlertDescription className="text-red-800">{error}</AlertDescription>
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -124,46 +131,73 @@ export default function ShoppingListsPage() {
             <p className="text-slate-600">No shopping lists yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lists.map(list => {
-              const isCurrentWeek = list.week_start === currentWeekStr;
-              return (
-                <div
-                  key={list.id}
-                  className={`bg-white p-4 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition ${
-                    isCurrentWeek ? "border-2 border-green-700" : ""
-                  }`}
-                >
-                  <div>
-                    <h3 className="font-semibold text-lg text-slate-900">
-                      Week of {new Date(list.week_start).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
-                    </h3>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Created: {new Date(list.created_at).toLocaleString()}
-                    </p>
-                  </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {lists.map(list => {
+                const isCurrentWeek = list.week_start === currentWeekStr;
+                return (
+                  <div
+                    key={list.id}
+                    className={`bg-white p-4 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition ${
+                      isCurrentWeek ? "border-2 border-green-700" : ""
+                    }`}
+                  >
+                    <div>
+                      <h3 className="font-semibold text-lg text-slate-900">
+                        Week of{" "}
+                        {new Date(list.week_start).toLocaleDateString("en-CA", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Created: {new Date(list.created_at).toLocaleString()}
+                      </p>
+                    </div>
 
-                  <div className="mt-4 flex justify-between items-center gap-2">
-                    <Link href={`/shopping-lists/${list.plan_id}`}>
-                      <Button size="sm" className="flex-1">
-                        View List
+                    <div className="mt-4 flex justify-between items-center gap-2">
+                      <Link href={`/shopping-lists/${list.plan_id}`}>
+                        <Button size="sm" className="flex-1">
+                          View List
+                        </Button>
+                      </Link>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => deleteList(list.id)}
+                        disabled={deletingId === list.id}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
-                    </Link>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => deleteList(list.id)}
-                      disabled={deletingId === list.id}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-center items-center gap-3 mt-8">
+              <Button
+                variant="outline"
+                disabled={page === 1}
+                onClick={() => setPage(prev => prev - 1)}
+              >
+                Previous
+              </Button>
+
+              <span className="px-4 py-2 bg-white rounded-md shadow-sm font-medium">
+                Page {page} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                disabled={page === totalPages}
+                onClick={() => setPage(prev => prev + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </>
         )}
       </div>
     </div>

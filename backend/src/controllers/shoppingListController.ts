@@ -192,6 +192,8 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
   try {
     const userId = req.session.userId;
     if (!userId) return res.status(401).end("Unauthorized");
+    const page = req.query.page ? parseInt(req.query.page as string) : 0;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
 
     const result = await pool.query(
       `
@@ -199,9 +201,10 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
       FROM shopping_lists s
       JOIN meal_plans m ON s.plan_id = m.id
       WHERE s.user_id = $1
-      ORDER BY m.week_start DESC;
+      ORDER BY m.week_start DESC
+      LIMIT $2 OFFSET $3;
       `,
-      [userId]
+      [userId, limit, limit * page]
     );
 
     res.json({ lists: result.rows });
