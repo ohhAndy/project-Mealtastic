@@ -180,6 +180,8 @@ export async function getShoppingList(req: Request, res: Response, next: NextFun
       [userId, plan_id]
     );
 
+    console.log(result.rows)
+
     res.json({ items: result.rows });
   } catch (err) {
     console.error("Error fetching shopping list:", err);
@@ -218,10 +220,6 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
       `,
       [userId, limit, limit * page]
     );
-    
-    console.log(result.rows);
-    console.log(limit)
-    console.log(page)
 
     res.json({ lists: result.rows, totalItems: totalItems, totalPages: totalPages });
   } catch (err) {
