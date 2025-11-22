@@ -20,7 +20,7 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const limit = 9;
   const [totalPages, setTotalPages] = useState(1);
 
@@ -152,19 +152,19 @@ export default function RoomsPage() {
                 <div className="flex justify-center items-center gap-3 mt-8">
                   <Button
                     variant="outline"
-                    disabled={page === 1}
+                    disabled={page === 0}
                     onClick={() => setPage((p) => p - 1)}
                   >
                     Previous
                   </Button>
 
                   <span className="px-4 py-2 bg-white rounded-md shadow-sm font-medium">
-                    Page {page} of {totalPages}
+                    Page {page + 1} of {totalPages}
                   </span>
 
                   <Button
                     variant="outline"
-                    disabled={page === totalPages}
+                    disabled={page + 1 === totalPages}
                     onClick={() => setPage((p) => p + 1)}
                   >
                     Next

@@ -21,7 +21,7 @@ export default function ShoppingListsPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const limit = 10;
   const [totalPages, setTotalPages] = useState(1);
 
@@ -179,19 +179,19 @@ export default function ShoppingListsPage() {
             <div className="flex justify-center items-center gap-3 mt-8">
               <Button
                 variant="outline"
-                disabled={page === 1}
+                disabled={page === 0}
                 onClick={() => setPage(prev => prev - 1)}
               >
                 Previous
               </Button>
 
               <span className="px-4 py-2 bg-white rounded-md shadow-sm font-medium">
-                Page {page} of {totalPages}
+                Page {page + 1} of {totalPages}
               </span>
 
               <Button
                 variant="outline"
-                disabled={page === totalPages}
+                disabled={page + 1 === totalPages}
                 onClick={() => setPage(prev => prev + 1)}
               >
                 Next
