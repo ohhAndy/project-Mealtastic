@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
 const DAYS = [
   "Monday",
@@ -75,6 +76,7 @@ export default function MealPlannerPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [searching, setSearching] = useState<boolean>(false);
+  const router = useRouter();
 
   useEffect(() => {
     setCurrentWeekStart(getWeekStart(new Date()));
@@ -232,6 +234,31 @@ export default function MealPlannerPage() {
     }
   }
 
+  async function generateShoppingListForCurrentWeek() {
+    if (!currentWeekStart || !mealPlan) return;
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/shopping-list/generate?plan_id=${mealPlan.entries[0]?.plan_id}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to generate shopping list");
+      }
+      const data = await res.json(); // assuming the response includes the shopping list ID
+      router.push(`/shopping-lists/${data.id}`);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to generate shopping list");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       searchRecipes();
@@ -376,6 +403,18 @@ export default function MealPlannerPage() {
                 </Button>
               </>
               </>
+            )}
+            {mealPlan && (
+              <div className="mb-6">
+                <Button
+                  onClick={generateShoppingListForCurrentWeek}
+                  disabled={loading}
+                  className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Generate Shopping List for This Week
+                </Button>
+              </div>
             )}
           </div>
         )}

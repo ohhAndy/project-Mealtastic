@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import pool from "../db";
+import { getWeekStart } from "./mealPlannerController";
 
 const VOLUME_UNITS = ["ml", "l"];
 const WEIGHT_UNITS = ["mg", "g", "kg"];
@@ -52,8 +53,18 @@ export async function generateShoppingList(req: Request, res: Response, next: Ne
     const userId = req.session.userId;
     if (!userId) return res.status(401).end("Unauthorized");
 
-    const { plan_id } = req.params;
-    if (!plan_id) return res.status(400).end("Missing plan_id");
+    let { plan_id } = req.query;
+    if (!plan_id) {
+      const week_start = getWeekStart();
+      const checkMealPlanResult = await pool.query(
+        `SELECT id FROM meal_plans WHERE week_start = $1 and user_id = $2`,
+        [week_start, userId]
+      );
+      if (checkMealPlanResult.rows.length > 0){
+        plan_id = checkMealPlanResult.rows[0].id;
+      }
+      else return res.status(400).end("Missing plan_id in query and no meal plan created for this week.");
+    }
 
     const entryResult = await pool.query(
       `SELECT r.cached_data

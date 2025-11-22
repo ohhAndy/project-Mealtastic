@@ -4,7 +4,7 @@ import pool from "../db";
 import { calendar_v3 } from "googleapis";
 
 // Utility: get start of current week (Monday)
-function getWeekStart(): string {
+export function getWeekStart(): string {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 (Sun) - 6 (Sat)
   const monday = new Date(today);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Calendar, Trash2 } from "lucide-react";
+import { Calendar, Trash2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
@@ -20,6 +20,13 @@ export default function ShoppingListsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  const today = new Date();
+  const currentWeekStart = new Date(today);
+  const day = today.getDay();
+  currentWeekStart.setDate(today.getDate() - ((day + 6) % 7)); // Monday start
+  const currentWeekStr = currentWeekStart.toISOString().split("T")[0];
 
   useEffect(() => {
     if (!user) return;
@@ -60,7 +67,26 @@ export default function ShoppingListsPage() {
     }
   };
 
+  const generateThisWeek = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch(`/api/shopping-list/generate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to generate shopping list");
+      await fetchLists();
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to generate list");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (authLoading || !user) return null;
+
+  const hasCurrentWeekList = lists.some(l => l.week_start === currentWeekStr);
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -72,6 +98,19 @@ export default function ShoppingListsPage() {
           <Alert className="mb-6 border-red-200 bg-red-50">
             <AlertDescription className="text-red-800">{error}</AlertDescription>
           </Alert>
+        )}
+
+        {!loading && !hasCurrentWeekList && (
+          <div className="mb-6 text-center">
+            <Button
+              onClick={generateThisWeek}
+              disabled={generating}
+              className="bg-green-700 hover:bg-green-800 text-white flex items-center gap-2 mx-auto"
+            >
+              <Plus className="w-4 h-4" />
+              Generate This Week Shopping List
+            </Button>
+          </div>
         )}
 
         {loading ? (
@@ -86,36 +125,44 @@ export default function ShoppingListsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lists.map(list => (
-              <div key={list.id} className="bg-white p-4 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition">
-                <div>
-                  <h3 className="font-semibold text-lg text-slate-900">
-                    Week of {new Date(list.week_start).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Created: {new Date(list.created_at).toLocaleString()}
-                  </p>
-                </div>
+            {lists.map(list => {
+              const isCurrentWeek = list.week_start === currentWeekStr;
+              return (
+                <div
+                  key={list.id}
+                  className={`bg-white p-4 rounded-lg shadow-sm flex flex-col justify-between hover:shadow-md transition ${
+                    isCurrentWeek ? "border-2 border-green-700" : ""
+                  }`}
+                >
+                  <div>
+                    <h3 className="font-semibold text-lg text-slate-900">
+                      Week of {new Date(list.week_start).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Created: {new Date(list.created_at).toLocaleString()}
+                    </p>
+                  </div>
 
-                <div className="mt-4 flex justify-between items-center gap-2">
-                  <Link href={`/shopping-lists/${list.plan_id}`}>
-                    <Button size="sm" className="flex-1">
-                      View List
+                  <div className="mt-4 flex justify-between items-center gap-2">
+                    <Link href={`/shopping-lists/${list.plan_id}`}>
+                      <Button size="sm" className="flex-1">
+                        View List
+                      </Button>
+                    </Link>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => deleteList(list.id)}
+                      disabled={deletingId === list.id}
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
-                  </Link>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => deleteList(list.id)}
-                    disabled={deletingId === list.id}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

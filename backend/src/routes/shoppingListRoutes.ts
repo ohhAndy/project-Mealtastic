@@ -5,7 +5,7 @@ import * as shoppingListCtrl from "../controllers/shoppingListController";
 const router = Router();
 
 // POST /api/shopping-list/generate
-router.post("/generate/:plan_id", isAuthenticated, shoppingListCtrl.generateShoppingList);
+router.post("/generate", isAuthenticated, shoppingListCtrl.generateShoppingList);
 
 // GET /api/shopping-list/:plan_id
 router.get("/:plan_id", isAuthenticated, shoppingListCtrl.getShoppingList);
