@@ -24,16 +24,16 @@ export default function ShoppingListPage({ params }: ShoppingListPageProps) {
   const { plan_id } = params;
   const { user, isLoading: authLoading } = useRequireAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingItemIds, setUpdatingItemIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!plan_id) return;
-    fetchShoppingList();
+    fetchShoppingList(plan_id);
   }, [plan_id]);
 
-  const fetchShoppingList = async () => {
+  const fetchShoppingList = async (plan_id: string) => {
     setLoading(true);
     setError(null);
     try {
