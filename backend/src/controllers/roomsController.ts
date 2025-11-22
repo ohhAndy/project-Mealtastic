@@ -87,6 +87,9 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
     );
     const totalItems = parseInt(countResult.rows[0].total, 10);
     const totalPages = Math.ceil(totalItems / limit);
+    console.log(result.rows)
+    console.log(limit)
+    console.log(page)
     return res.json({rooms: result.rows, totalItems: totalItems, totalPages: totalPages });
   }
   catch(err) {

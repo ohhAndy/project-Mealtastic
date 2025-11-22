@@ -220,6 +220,8 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
     );
     
     console.log(result.rows);
+    console.log(limit)
+    console.log(page)
 
     res.json({ lists: result.rows, totalItems: totalItems, totalPages: totalPages });
   } catch (err) {
