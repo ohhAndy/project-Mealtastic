@@ -4,23 +4,22 @@ import { Recipe } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Clock,
   Users,
-  ChefHat,
   Heart,
   ArrowLeft,
   Leaf,
   Box,
   Star,
-  ChevronRight,
   ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRecipes } from "@/lib/hooks/useRecipes";
-import { Textarea } from "../ui/textarea";
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -46,6 +45,8 @@ const recipeFractions: Record<string, string> = {
   "0.75": "¾",
 };
 
+const REVIEWS_PER_PAGE = 5;
+
 export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const router = useRouter();
   const [isSaved, setIsSaved] = useState(recipe.persistent || false);
@@ -57,6 +58,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const ingredients = recipe.cached_data?.extendedIngredients || [];
   const instructions = recipe.cached_data?.analyzedInstructions;
 
+  // Review state
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -64,36 +66,56 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [hoveredStar, setHoveredStar] = useState(0);
-
+  
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMoreReviews, setHasMoreReviews] = useState(false);
   const [totalReviewCount, setTotalReviewCount] = useState(0);
 
-  // Load reviews
-  const loadReviews = async (page: number) => {
-    setIsLoadingReviews(true);
+  // Load user's review separately
+  const loadUserReview = async () => {
     try {
       const response = await fetch(
-        `/api/recipes/${recipe.id}/reviews?page=${page}&limit=5`,
+        `/api/recipes/${recipe.id}/reviews/user`,
         {
           credentials: "include",
         }
       );
       if (response.ok) {
         const data = await response.json();
-        setReviews(data || []);
-
-        // Check if there are more reviews
-        setHasMoreReviews(data.length === 5);
-
-        // Find user's review
-        const userRev = data?.find((r: Review) => r.user_id === userId);
-        if (userRev) {
-          setUserReview(userRev);
-          setNewRating(userRev.rating);
-          setNewComment(userRev.comment || "");
+        if (data) {
+          setUserReview(data);
+          setNewRating(data.rating);
+          setNewComment(data.comment || "");
+        } else {
+          setUserReview(null);
+          setNewRating(0);
+          setNewComment("");
         }
+      }
+    } catch (error) {
+      console.error("Failed to load user review:", error);
+    }
+  };
+
+  // Load reviews (paginated, excluding user's own review)
+  const loadReviews = async (page: number) => {
+    setIsLoadingReviews(true);
+    try {
+      const response = await fetch(
+        `/api/recipes/${recipe.id}/reviews?page=${page}&limit=${REVIEWS_PER_PAGE}`,
+        {
+          credentials: "include",
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        // Filter out user's review from the list since it's shown separately
+        const filteredReviews = data?.filter((r: Review) => r.user_id !== userId) || [];
+        setReviews(filteredReviews);
+        
+        // Check if there are more reviews
+        setHasMoreReviews(data.length === REVIEWS_PER_PAGE);
       }
     } catch (error) {
       console.error("Failed to load reviews:", error);
@@ -105,9 +127,12 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   // Load total review count
   const loadTotalReviewCount = async () => {
     try {
-      const response = await fetch(`/api/recipes/${recipe.id}/reviews/count`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `/api/recipes/${recipe.id}/reviews/count`,
+        {
+          credentials: "include",
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setTotalReviewCount(data.count || 0);
@@ -118,6 +143,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   };
 
   useEffect(() => {
+    loadUserReview();
     loadReviews(currentPage);
     loadTotalReviewCount();
   }, [recipe.id, userId, currentPage]);
@@ -150,7 +176,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
     setIsSubmittingReview(true);
     try {
       const response = await fetch(`/api/recipes/${recipe.id}/reviews`, {
-        method: "POST",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -162,23 +188,10 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
       });
 
       if (response.ok) {
-        // Backend returns 200 with no body, so reload reviews
-        const reviewsResponse = await fetch(
-          `/api/recipes/${recipe.id}/reviews`,
-          {
-            credentials: "include",
-          }
-        );
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json();
-          setReviews(reviewsData || []);
-          const userRev = reviewsData?.find(
-            (r: Review) => r.user_id === userId
-          );
-          if (userRev) {
-            setUserReview(userRev);
-          }
-        }
+        // Reload user's review, current page, and count
+        await loadUserReview();
+        await loadReviews(currentPage);
+        await loadTotalReviewCount();
       } else {
         const error = await response.text();
         alert(`Failed to submit review: ${error}`);
@@ -212,7 +225,10 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
         setUserReview(null);
         setNewRating(0);
         setNewComment("");
-        setReviews(reviews.filter((r) => r.id !== userReview.id));
+        
+        // Reload reviews and count
+        await loadReviews(currentPage);
+        await loadTotalReviewCount();
       } else {
         const error = await response.text();
         alert(`Failed to delete review: ${error}`);
@@ -235,7 +251,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
     }
   };
 
-  const totalPages = Math.ceil(totalReviewCount / 5);
+  const totalPages = Math.ceil(totalReviewCount / REVIEWS_PER_PAGE);
   const averageRating = recipe.rating || 0;
 
   return (
@@ -393,9 +409,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
                               step.ingredients.length > 0 && (
                                 <p className="text-sm text-gray-600 flex gap-2 items-center ml-4">
                                   <Leaf height={16} width={16}></Leaf>
-                                  <span className="italic">
-                                    Ingredients:
-                                  </span>{" "}
+                                  <span className="italic">Ingredients:</span>{" "}
                                   {step.ingredients
                                     .map((ing) => ing.name)
                                     .join(", ")}
@@ -514,37 +528,35 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             ) : (
               <>
                 <div className="space-y-4">
-                  {reviews
-                    .filter((review) => review.id !== userReview?.id)
-                    .map((review) => (
-                      <div
-                        key={review.id}
-                        className="border-b pb-4 last:border-0"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <Star
-                                key={star}
-                                className={`h-4 w-4 ${
-                                  star <= review.rating
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-gray-300"
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(review.created_at).toLocaleDateString()}
-                          </span>
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="border-b pb-4 last:border-0"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-4 w-4 ${
+                                star <= review.rating
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          ))}
                         </div>
-                        {review.comment && (
-                          <p className="text-sm text-gray-700">
-                            {review.comment}
-                          </p>
-                        )}
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </span>
                       </div>
-                    ))}
+                      {review.comment && (
+                        <p className="text-sm text-gray-700">
+                          {review.comment}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {/* Pagination Controls */}
@@ -578,7 +590,8 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
               </>
             )}
           </CardContent>
-        </Card>      </div>
+        </Card>
+      </div>
     </div>
   );
 }
