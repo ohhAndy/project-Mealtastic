@@ -353,3 +353,17 @@ export async function deleteReview(req: Request, res: Response) {
     return res.status(500).end(err instanceof Error ? err.message : err);
   }
 }
+
+export async function getReviewCount(req: Request, res: Response) {
+  const recipe_id = req.params.id;
+  try {
+    const result = await pool.query(
+      "SELECT COUNT(*)::int as count FROM reviews WHERE recipe_id = $1::text",
+      [recipe_id]
+    );
+    return res.json({ count: result.rows[0].count });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).end(err instanceof Error ? err.message : err);
+  }
+}

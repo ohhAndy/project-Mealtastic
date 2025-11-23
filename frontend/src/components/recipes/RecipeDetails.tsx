@@ -13,6 +13,8 @@ import {
   Leaf,
   Box,
   Star,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -63,34 +65,62 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const [newComment, setNewComment] = useState("");
   const [hoveredStar, setHoveredStar] = useState(0);
 
-  // Load reviews
-  useEffect(() => {
-    const loadReviews = async () => {
-      setIsLoadingReviews(true);
-      try {
-        const response = await fetch(`/api/recipes/${recipe.id}/reviews`, {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          // Backend returns array directly, not { reviews: [...] }
-          setReviews(data || []);
-          const userRev = data?.find((r: Review) => r.user_id === userId);
-          if (userRev) {
-            setUserReview(userRev);
-            setNewRating(userRev.rating);
-            setNewComment(userRev.comment || "");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load reviews:", error);
-      } finally {
-        setIsLoadingReviews(false);
-      }
-    };
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMoreReviews, setHasMoreReviews] = useState(false);
+  const [totalReviewCount, setTotalReviewCount] = useState(0);
 
-    loadReviews();
-  }, [recipe.id, userId]);
+  // Load reviews
+  const loadReviews = async (page: number) => {
+    setIsLoadingReviews(true);
+    try {
+      const response = await fetch(
+        `/api/recipes/${recipe.id}/reviews?page=${page}&limit=5`,
+        {
+          credentials: "include",
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setReviews(data || []);
+
+        // Check if there are more reviews
+        setHasMoreReviews(data.length === 5);
+
+        // Find user's review
+        const userRev = data?.find((r: Review) => r.user_id === userId);
+        if (userRev) {
+          setUserReview(userRev);
+          setNewRating(userRev.rating);
+          setNewComment(userRev.comment || "");
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load reviews:", error);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  // Load total review count
+  const loadTotalReviewCount = async () => {
+    try {
+      const response = await fetch(`/api/recipes/${recipe.id}/reviews/count`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTotalReviewCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error("Failed to load review count:", error);
+    }
+  };
+
+  useEffect(() => {
+    loadReviews(currentPage);
+    loadTotalReviewCount();
+  }, [recipe.id, userId, currentPage]);
 
   const handleSaveToggle = async () => {
     setIsLoading(true);
@@ -139,7 +169,6 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             credentials: "include",
           }
         );
-        console.log(reviewsResponse);
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json();
           setReviews(reviewsData || []);
@@ -194,10 +223,20 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
     }
   };
 
-  const averageRating =
-    reviews.length > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-      : 0;
+  const handleNextPage = () => {
+    if (hasMoreReviews) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const totalPages = Math.ceil(totalReviewCount / 5);
+  const averageRating = recipe.rating || 0;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -259,10 +298,13 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
                 <span>{servings} servings</span>
               </div>
             )}
-            {!!recipe.rating && recipe.rating > 0 && (
+            {averageRating > 0 && (
               <div className="flex items-center gap-2">
-                <ChefHat className="h-4 w-4" />
-                <span>Rating: {recipe.rating.toFixed(1)}</span>
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                <span>
+                  {averageRating.toFixed(1)} ({totalReviewCount}{" "}
+                  {totalReviewCount === 1 ? "review" : "reviews"})
+                </span>
               </div>
             )}
           </div>
@@ -460,53 +502,83 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
         {/* Reviews List */}
         <Card>
           <CardHeader>
-            <CardTitle>Reviews ({reviews.length})</CardTitle>
+            <CardTitle>Reviews ({totalReviewCount})</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingReviews ? (
               <p className="text-muted-foreground">Loading reviews...</p>
-            ) : reviews.length === 0 ? (
+            ) : totalReviewCount === 0 ? (
               <p className="text-muted-foreground">
                 No reviews yet. Be the first to review!
               </p>
             ) : (
-              <div className="space-y-4">
-                {reviews
-                  .filter((review) => review.id !== userReview?.id)
-                  .map((review) => (
-                    <div
-                      key={review.id}
-                      className="border-b pb-4 last:border-0"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${
-                                star <= review.rating
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
+              <>
+                <div className="space-y-4">
+                  {reviews
+                    .filter((review) => review.id !== userReview?.id)
+                    .map((review) => (
+                      <div
+                        key={review.id}
+                        className="border-b pb-4 last:border-0"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${
+                                  star <= review.rating
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(review.created_at).toLocaleDateString()}
+                          </span>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(review.created_at).toLocaleDateString()}
-                        </span>
+                        {review.comment && (
+                          <p className="text-sm text-gray-700">
+                            {review.comment}
+                          </p>
+                        )}
                       </div>
-                      {review.comment && (
-                        <p className="text-sm text-gray-700">
-                          {review.comment}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    
+                    <span className="text-sm text-muted-foreground">
+                      Page {currentPage + 1} of {totalPages}
+                    </span>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={!hasMoreReviews}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
-        </Card>
-      </div>
+        </Card>      </div>
     </div>
   );
 }
