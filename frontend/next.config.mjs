@@ -7,8 +7,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'img.spoonacular.com',
-        pathname: '/**',
+        hostname: '**',
       },
     ],
   },

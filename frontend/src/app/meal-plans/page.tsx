@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const DAYS = [
   "Monday",
@@ -497,9 +498,9 @@ export default function MealPlannerPage() {
                       {hasRecipe ? (
                         <div className="p-3">
                           {entry.image_url && (
-                            <img
+                            <Image
                               src={entry.image_url}
-                              alt={entry.title}
+                              alt={entry.title ?? ""}
                               className="w-full h-24 object-cover rounded mb-2"
                             />
                           )}
@@ -589,7 +590,7 @@ export default function MealPlannerPage() {
                       className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                     >
                       {recipe.image_url && (
-                        <img
+                        <Image
                           src={recipe.image_url}
                           alt={recipe.title}
                           className="w-full h-32 object-cover"
