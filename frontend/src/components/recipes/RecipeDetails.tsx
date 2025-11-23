@@ -139,6 +139,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             credentials: "include",
           }
         );
+        console.log(reviewsResponse);
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json();
           setReviews(reviewsData || []);
