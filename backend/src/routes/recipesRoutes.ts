@@ -13,4 +13,5 @@ router.post('/:id/save', isAuthenticated, checkId, recipeCtrl.saveRecipe);
 router.delete('/:id/save', isAuthenticated, checkId, recipeCtrl.deleteSavedRecipe);
 router.post('/:id/reviews', isAuthenticated, checkId, checkRating, sanitizeComment, recipeCtrl.postReview);
 router.get('/:id/reviews', isAuthenticated, checkId, checkPage, checkLimit, recipeCtrl.getReviews);
+router.get('/:id/reviews/:reviewId', isAuthenticated, checkId, checkPage, checkLimit, recipeCtrl.deleteReview);
 export default router;

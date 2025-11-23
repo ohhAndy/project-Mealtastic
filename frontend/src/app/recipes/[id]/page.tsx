@@ -10,7 +10,7 @@ import { Recipe } from '@/types';
 
 export default function RecipeDetailPage() {
   const params = useParams();
-  const recipeId = params.id as string; // Your backend uses string IDs
+  const recipeId = params.id as string; 
   const { user, isLoading: authLoading } = useRequireAuth();
   const { getRecipeById } = useRecipes();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -58,7 +58,7 @@ export default function RecipeDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <RecipeDetails recipe={recipe} />
+      <RecipeDetails recipe={recipe} userId={user.id}/>
     </div>
   );
 }

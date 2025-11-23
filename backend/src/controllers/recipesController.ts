@@ -317,3 +317,39 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
     return res.status(500).end(err);
   }
 }
+
+export async function deleteReview(req: Request, res: Response) {
+  const reviewId = req.params.reviewId;
+  const userId = req.session.userId;
+  
+  try {
+    // First check if the review exists and belongs to the user
+    const checkResult = await pool.query(
+      "SELECT recipe_id FROM reviews WHERE id = $1::uuid AND user_id = $2::uuid",
+      [reviewId, userId]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(403).end("Unauthorized: You can only delete your own reviews");
+    }
+    
+    const recipeId = checkResult.rows[0].recipe_id;
+    
+    // Delete the review
+    await pool.query(
+      "DELETE FROM reviews WHERE id = $1::uuid AND user_id = $2::uuid",
+      [reviewId, userId]
+    );
+    
+    // Update recipe rating
+    await pool.query(
+      "UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) WHERE id = $1::text",
+      [recipeId]
+    );
+    
+    res.sendStatus(200);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).end(err instanceof Error ? err.message : err);
+  }
+}
