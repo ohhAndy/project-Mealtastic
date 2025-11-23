@@ -126,7 +126,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
         },
         credentials: "include",
         body: JSON.stringify({
-          rating: newRating,
+          rating: newRating.toString(),
           comment: newComment.trim() || null,
         }),
       });
