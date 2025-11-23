@@ -273,26 +273,6 @@ export async function deleteSavedRecipe(req: Request, res: Response, next: NextF
   }
 }
 
-export async function postReview(req: Request, res: Response, next: NextFunction) {
-  const rating = parseInt(req.body.rating);
-  const comment = req.body.comment as string;
-  const recipe_id = req.params.id;
-  try {
-    await pool.query("INSERT INTO reviews (user_id, recipe_id, rating, comment) VALUES ($1, $2::text, $3, $4);", [req.session.userId, recipe_id, rating, comment]);
-
-    // update average rating
-    const recipe = await pool.query("UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) WHERE id = $1::text RETURNING *;", [recipe_id]);
-    const cache_key = getRecipeKey(recipe.rows[0].id as string);
-    cacheSet(cache_key, recipe.rows[0]);
-    res.sendStatus(200);
-  } catch (err) {
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
-    return res.status(500).end(err);
-  }
-}
 
 export async function getReviews(req: Request, res: Response, next: NextFunction) {
   const page = req.query.page ? parseInt(req.query.page as string) : 0;
@@ -365,5 +345,64 @@ export async function getReviewCount(req: Request, res: Response) {
   } catch (err) {
     console.log(err);
     return res.status(500).end(err instanceof Error ? err.message : err);
+  }
+}
+
+export async function getUserReview(req: Request, res: Response) {
+  const recipe_id = req.params.id;
+  const user_id = req.session.userId;
+  
+  try {
+    const result = await pool.query(
+      "SELECT * FROM reviews WHERE recipe_id = $1::text AND user_id = $2::uuid LIMIT 1",
+      [recipe_id, user_id]
+    );
+    
+    if (result.rows.length > 0) {
+      return res.json(result.rows[0]);
+    } else {
+      return res.json(null);
+    }
+  } catch (err) {
+    console.log(err);
+    return res.status(500).end(err instanceof Error ? err.message : err);
+  }
+}
+
+export async function upsertReview(req: Request, res: Response, next: NextFunction) {
+  const rating = parseInt(req.body.rating);
+  const comment = req.body.comment as string;
+  const recipe_id = req.params.id;
+  const user_id = req.session.userId;
+  
+  try {
+    // Insert or update if already exists
+    await pool.query(
+      `INSERT INTO reviews (user_id, recipe_id, rating, comment) 
+       VALUES ($1::uuid, $2::text, $3, $4)
+       ON CONFLICT (user_id, recipe_id) 
+       DO UPDATE SET rating = $3, comment = $4, created_at = NOW()`,
+      [user_id, recipe_id, rating, comment]
+    );
+    
+    // Update average rating
+    const recipe = await pool.query(
+      `UPDATE recipes 
+       SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) 
+       WHERE id = $1::text 
+       RETURNING *`,
+      [recipe_id]
+    );
+    
+    const cache_key = getRecipeKey(recipe.rows[0].id as string);
+    cacheSet(cache_key, recipe.rows[0]);
+    
+    res.sendStatus(200);
+  } catch (err) {
+    if (err instanceof Error) {
+      console.log(err);
+      return res.status(500).end(err.message);
+    }
+    return res.status(500).end(err);
   }
 }
