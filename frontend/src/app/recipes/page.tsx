@@ -2,6 +2,7 @@
 
 import RecipeGrid from "@/components/recipes/RecipeGrid";
 import RecipeSearchBar from "@/components/recipes/RecipeSearchBar";
+import { Button } from "@/components/ui/button";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { useRecipes } from "@/lib/hooks/useRecipes";
 import { RecipeSearchParams } from "@/types";
@@ -22,10 +23,18 @@ export default function RecipesPage() {
   if (authLoading || !user) return null;
 
   return (
-    <div className="mx-auto px-4 py-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Discover Recipes</h1>
-        <p className="text-muted-foreground">Search thousands of recipes to plan your perfect meals</p>
+    <div className="mx-auto px-4 py-8 space-y-2 ">
+      <div className="flex justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Discover Recipes</h1>
+          <p className="text-muted-foreground">Search thousands of recipes to plan your perfect meals</p>
+        </div>
+        <Button 
+          className="bg-green-800 mr-4" 
+          onClick={() => router.push("recipes/create")}
+        >
+          + Create
+        </Button>
       </div>
 
       <RecipeSearchBar onSearch={handleSearch} isLoading={isLoading}/>
