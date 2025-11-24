@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   rating INT NOT NULL,
   comment TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
+  UNIQUE (user_id, recipe_id)
 );
 
 -- =========================
