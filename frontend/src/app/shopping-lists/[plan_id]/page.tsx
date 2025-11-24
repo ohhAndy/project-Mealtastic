@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { Trash2, Check } from "lucide-react";
+import { useParams } from "next/navigation";
 
 type ShoppingItem = {
   id: string;
@@ -16,12 +17,9 @@ type ShoppingItem = {
   checked: boolean;
 };
 
-interface ShoppingListPageProps {
-  params: { plan_id: string };
-}
 
-export default function ShoppingListPage({ params }: ShoppingListPageProps) {
-  const { plan_id } = params;
+export default function ShoppingListPage() {
+  const { plan_id } = useParams<{ plan_id: string }>();
   const { user, isLoading: authLoading } = useRequireAuth();
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,9 +39,9 @@ export default function ShoppingListPage({ params }: ShoppingListPageProps) {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch shopping list");
-      const data = await res.json();  
+      const data = await res.json(); 
+      console.log(data); 
       setItems(data.items || []);
-      console.log(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
