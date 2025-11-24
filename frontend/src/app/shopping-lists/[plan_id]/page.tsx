@@ -43,7 +43,7 @@ export default function ShoppingListPage({ params }: ShoppingListPageProps) {
       if (!res.ok) throw new Error("Failed to fetch shopping list");
       const data = await res.json();  
       setItems(data.items || []);
-      console.log(data.items);
+      console.log(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
