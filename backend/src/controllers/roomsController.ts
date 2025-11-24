@@ -58,11 +58,15 @@ async function getPeerIdForUser(roomId: string, userId: string) {
 
 export async function createRoom(req: Request, res: Response, next: NextFunction) {
   try {
+    const recipe_id = req.body.recipe_id;
+    const recipe_name = req.body.recipe_name;
     let result = await pool.query("SELECT * FROM rooms WHERE owner_id = $1;", [req.session.userId]);
     if (result.rows.length > 0) {
       return res.status(403).end("Already owner of another room. Delete previous room before opening another.;");
     }
-    result = await pool.query("INSERT INTO rooms (owner_id) VALUES ($1) RETURNING *;", [req.session.userId]);
+    result = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId]);
+    const owner_name = result.rows[0].name;
+    result = await pool.query("INSERT INTO rooms (owner_id, owner_name, recipe_id, recipe_name) VALUES ($1, $2, $3, $4) RETURNING *;", [req.session.userId, owner_name, recipe_id, recipe_name]);
     return res.json(result.rows[0]);
   }
   catch(err) {
@@ -78,7 +82,19 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
   try {
     const page = req.query.page ? parseInt(req.query.page as string) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
-    const result = await pool.query("SELECT * FROM rooms LIMIT $1 OFFSET $2;", [limit, page * limit]);
+    const search = req.query.search ? req.query.search as string : "";
+    const recipe_id = req.query.recipe_id ? req.query.recipe_query as string : "";
+    let query_string = "SELECT * FROM rooms LIMIT $1 OFFSET $2;";
+    let params: any[] = [limit, page * limit]
+    if (search) {
+      query_string = "SELECT * FROM rooms WHERE LOWER(recipe_name) LIKE $1 LIMIT $2 OFFSET $3;"
+      params = [search, limit, page * limit]
+    }
+    if (recipe_id) {
+      query_string = "SELECT * FROM rooms WHERE recipe_id = $1 LIMIT $2 OFFSET $3;"
+      params = [recipe_id, limit, page * limit]
+    }
+    const result = await pool.query(query_string, params);
     const countResult = await pool.query(
       `
       SELECT COUNT(*) AS total

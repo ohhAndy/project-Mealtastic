@@ -131,7 +131,10 @@ CREATE TABLE IF NOT EXISTS shopping_items (
 -- =========================
 CREATE TABLE IF NOT EXISTS rooms (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipe_name TEXT NOT NULL,
+  owner_name TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
