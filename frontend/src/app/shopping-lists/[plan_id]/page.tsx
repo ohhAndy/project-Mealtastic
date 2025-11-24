@@ -40,7 +40,6 @@ export default function ShoppingListPage() {
       });
       if (!res.ok) throw new Error("Failed to fetch shopping list");
       const data = await res.json(); 
-      console.log(data); 
       setItems(data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -165,7 +164,7 @@ export default function ShoppingListPage() {
                     {item.ingredient}
                   </span>
                   <span className="text-gray-600">
-                    ({item.quantity} {item.unit})
+                    ({Number(item.quantity).toFixed(2)} {item.unit})
                   </span>
                   {item.category && <em className="text-gray-500 ml-2">[{item.category}]</em>}
                 </div>
