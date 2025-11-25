@@ -82,14 +82,9 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
   try {
     const page = req.query.page ? parseInt(req.query.page as string) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
-    const search = req.query.search ? req.query.search as string : "";
     const recipe_id = req.query.recipe_id ? req.query.recipe_query as string : "";
     let query_string = "SELECT * FROM rooms LIMIT $1 OFFSET $2;";
     let params: any[] = [limit, page * limit]
-    if (search) {
-      query_string = "SELECT * FROM rooms WHERE LOWER(recipe_name) LIKE $1 LIMIT $2 OFFSET $3;"
-      params = [search, limit, page * limit]
-    }
     if (recipe_id) {
       query_string = "SELECT * FROM rooms WHERE recipe_id = $1 LIMIT $2 OFFSET $3;"
       params = [recipe_id, limit, page * limit]
