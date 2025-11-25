@@ -11,6 +11,7 @@ type SignalMessage =
   | {
       type: "offer";
       from: string;
+      username: string,
       to: string;
       data: RTCSessionDescriptionInit;
     }
@@ -95,8 +96,9 @@ function VideoTile(props: {
 const RemoteVideoGrid = memo(function RemoteVideoGrid(props: {
   remoteIds: string[];
   remoteStreams: React.RefObject<Map<string, MediaStream>>;
+  remoteUsernames: React.RefObject<Map<string, string>>;
 }) {
-  const { remoteIds, remoteStreams } = props;
+  const { remoteIds, remoteStreams, remoteUsernames } = props;
 
   return (
     <>
@@ -104,7 +106,7 @@ const RemoteVideoGrid = memo(function RemoteVideoGrid(props: {
         <VideoTile 
           key={id}
           label="Peer"
-          subLabel={id}
+          subLabel={remoteUsernames.current.get(id) ?? ""}
           stream={remoteStreams.current.get(id) ?? null}
           muted
         />
@@ -125,7 +127,7 @@ export default function RoomPage() {
   const [chatInput, setChatInput] = useState("");
   const [isOwner, setIsOwner] = useState(false);
   const [isSendingChat, setIsSendingChat] = useState(false);
-
+  const remoteUsernames = useRef<Map<string, string>>(new Map());
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
@@ -170,7 +172,7 @@ export default function RoomPage() {
                 " to " +
                 other.id
             );
-            createPeerConnection(other.id, true);
+            createPeerConnection(other.id, data.newPeer.username, other.username, true);
           }
         }
       } else {
@@ -305,7 +307,7 @@ export default function RoomPage() {
     }
   }
 
-  async function createPeerConnection(remoteId: string, initiator: boolean) {
+  async function createPeerConnection(remoteId: string, new_username: string, other_username: string, initiator: boolean) {
     if (peerConnections.current.has(remoteId)) return;
     const localStream = localStreamRef.current;
     const pc = new RTCPeerConnection({
@@ -321,6 +323,7 @@ export default function RoomPage() {
 
     const remoteStream = new MediaStream();
     remoteStreams.current.set(remoteId, remoteStream);
+    remoteUsernames.current.set(remoteId, other_username);
     pc.ontrack = (e) => {
       e.streams[0].getTracks().forEach((t) => remoteStream.addTrack(t));
       setRemoteIds((prev) =>
@@ -359,6 +362,7 @@ export default function RoomPage() {
       sendSignal({
         type: "offer",
         from: ensurePeerId(peerIdRef.current),
+        username: new_username,
         to: remoteId,
         data: offer,
       });
@@ -377,6 +381,7 @@ export default function RoomPage() {
 
       const remoteStream = new MediaStream();
       remoteStreams.current.set(msg.from, remoteStream);
+      remoteUsernames.current.set(msg.from, msg.username);
       const localStream = localStreamRef.current;
 
       if (!localStream) {
@@ -515,6 +520,7 @@ export default function RoomPage() {
     peerConnections.current.get(id)?.close();
     peerConnections.current.delete(id);
     remoteStreams.current.delete(id);
+    remoteUsernames.current.delete(id);
     pendingCandidates.current.delete(id);
     setRemoteIds((p) => p.filter((r) => r !== id));
   }
@@ -551,6 +557,7 @@ export default function RoomPage() {
     peerConnections.current.forEach((pc) => pc.close());
     peerConnections.current.clear();
     remoteStreams.current.clear();
+    remoteUsernames.current.clear();
     pendingCandidates.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     setRemoteIds([]);
@@ -625,6 +632,7 @@ export default function RoomPage() {
             <RemoteVideoGrid
               remoteIds={remoteIds}
               remoteStreams={remoteStreams}
+              remoteUsernames={remoteUsernames}
             />
           </CardContent>
         </Card>

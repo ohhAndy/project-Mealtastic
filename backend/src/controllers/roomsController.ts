@@ -5,6 +5,7 @@ type SignalMessage =
   | {
       type: "offer";
       from: string;
+      username: string,
       to: string;
       data: RTCSessionDescriptionInit;
     }
@@ -191,17 +192,27 @@ export async function pollRoom(req: Request, res: Response, next: NextFunction) 
 export async function signalRoom(req: Request, res: Response, next: NextFunction) {
   try {
     const roomId = req.params.roomId;
-    const { from, to, type, data } = req.body as {
+    const { from, username, to, type, data } = req.body as {
       from: string;
       to?: string;
+      username?: string;
       type: SignalMessage["type"];
       data?: any;
     };
 
-    if (type === "offer" || type === "answer" || type === "ice") {
+    if (type === "answer" || type === "ice") {
       if (!to) return res.status(400).end("Missing 'to' for signaling message");
 
       const payload: SignalMessage = { type, from, to, data } as any;
+      enqueueSignal(roomId, to, payload);
+      return res.status(200).end();
+    }
+
+    if (type === "offer") {
+      if (!to) return res.status(400).end("Missing 'to' for signaling message");
+      if (!username) return res.status(400).end("Missing 'username' for signaling message");
+
+      const payload: SignalMessage = { type, from, username, to, data } as any;
       enqueueSignal(roomId, to, payload);
       return res.status(200).end();
     }
