@@ -114,23 +114,25 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
   try {
     const roomId = req.params.roomId;
 
-    let result = await pool.query("SELECT * FROM rooms WHERE id=$1;", [roomId]);
-    if (result.rows.length < 1)
+    const roomResult = await pool.query("SELECT * FROM rooms WHERE id=$1;", [roomId]);
+    if (roomResult.rows.length < 1)
         return res.status(404).end("Room not found");
 
     const peers = await getPeers(roomId);
     if (peers.length >= 4)
       return res.status(403).end("Room is full (max 4 users)");
 
-    const isOwner = result.rows[0].owner_id === req.session.userId;
+    const isOwner = roomResult.rows[0].owner_id === req.session.userId;
+    const recipeName = roomResult.rows[0].recipe_name;
+    const ownerName = roomResult.rows[0].owner_name;
 
-    result = await pool.query("SELECT * FROM peers WHERE room_id = $1 AND user_id = $2;", [roomId, req.session.userId])
+    let result = await pool.query("SELECT * FROM peers WHERE room_id = $1 AND user_id = $2;", [roomId, req.session.userId])
     if (result.rows.length == 0) {
       const name = await pool.query("SELECT name FROM users WHERE id = $1;", [req.session.userId])
       result = await pool.query("INSERT INTO peers (room_id, user_id, username) VALUES ($1, $2, $3) RETURNING *;", [roomId, req.session.userId, name.rows[0].name]);
     }
 
-    return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner });
+    return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner, recipeName: recipeName, ownerName: ownerName });
   }
   catch(err) {
     if (err instanceof Error) {

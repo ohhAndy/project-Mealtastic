@@ -131,6 +131,8 @@ export default function RoomPage() {
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreams = useRef<Map<string, MediaStream>>(new Map());
   const pollingAbort = useRef<AbortController | null>(null);
+  const recipeNameRef = useRef<string | null>(null);
+  const ownerNameRef = useRef<string | null>(null);
 
   const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(
     new Map()
@@ -156,6 +158,8 @@ export default function RoomPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        recipeNameRef.current = data.recipeName;
+        ownerNameRef.current = data.ownerName;
         peerIdRef.current = data.newPeer.id;
         setPeerId(data.newPeer.id);
         setIsOwner(data.isOwner);
@@ -602,10 +606,10 @@ export default function RoomPage() {
           <CardHeader className="flex justify-between items-center space-y-0">
             <div>
               <CardTitle className="text-lg font-semibold">
-                Room: {roomId}
+                Cooking {recipeNameRef.current ?? "Unknown Recipe"}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Max 4 participants · You + {remoteIds.length} others
+                Hosted by {ownerNameRef.current ?? "Unknown"} · {remoteIds.length + 1}/4 Peer Capacity
               </p>
             </div>
             <div className="flex gap-2">
