@@ -661,7 +661,7 @@ export default function RoomPage() {
                     >
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="text-[11px] font-medium opacity-80">
-                          {isSelf ? "You" : msg.from}
+                          {isSelf ? "You" : remoteUsernames.current.get(msg.from) ?? msg.from}
                         </span>
                         {msg.timestamp && (
                           <span className="text-[10px] opacity-60">
