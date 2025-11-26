@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   id TEXT PRIMARY KEY DEFAULT uuid_generate_v4(),                -- can be external API id or UUID
   title TEXT NOT NULL,
   image_url TEXT,
-  prep_time INT,
+  prep_time INT NOT NULL,
   cuisines TEXT[] DEFAULT '{}',
   diets TEXT[] DEFAULT '{}',
   source TEXT,

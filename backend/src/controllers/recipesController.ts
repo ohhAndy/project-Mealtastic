@@ -183,7 +183,7 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
   // our own ids to insert into the db
   const title = req.body.title;
   const image = req.body.image;
-  const prep_time = req.body.readyInMinutes;
+  const prep_time = parseInt(req.body.readyInMinutes);
   const cuisines = req.body.cuisines;
   const diets = req.body.diets;
   const servings = req.body.servings;
