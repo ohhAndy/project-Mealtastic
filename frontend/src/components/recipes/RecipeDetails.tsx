@@ -74,7 +74,6 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
-  const [hasMoreReviews, setHasMoreReviews] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoadingReviews(true);
@@ -144,6 +143,9 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
     setIsLoading(false);
   };
 
+  const totalPages = Math.ceil(totalReviewCount / REVIEWS_PER_PAGE);
+  const hasMoreReviews = currentPage < totalPages - 1;
+
   const handleNextPage = () => {
     if (hasMoreReviews) {
       setCurrentPage((prev) => prev + 1);
@@ -160,7 +162,6 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const servings = recipe.cached_data?.servings;
   const ingredients = recipe.cached_data?.extendedIngredients || [];
   const instructions = recipe.cached_data?.analyzedInstructions;
-  const totalPages = Math.ceil(totalReviewCount / REVIEWS_PER_PAGE);
   const averageRating = recipe.rating || 0;
 
   return (
@@ -405,9 +406,9 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             <div className="flex gap-2">
               <Button
                 onClick={handleSubmitReview}
-                disabled={isSubmittingReview || newRating === 0}
+                disabled={isLoading || newRating === 0}
               >
-                {isSubmittingReview
+                {isLoading
                   ? "Submitting..."
                   : userReview
                   ? "Update Review"
