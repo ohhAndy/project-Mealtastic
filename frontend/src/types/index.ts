@@ -1,4 +1,12 @@
-// types/index.ts
+export interface Review {
+  id: string;     
+  user_id: string;   
+  recipe_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  user_name?: string; 
+}
 
 export interface User {
   id: number;
@@ -36,15 +44,6 @@ export interface SavedRecipe {
   recipeId: string;
   savedAt: string;
   recipe: Recipe;
-}
-
-export interface Review {
-  id: number;
-  user_id: number;
-  recipe_id: string;
-  rating: number;
-  comment: string;
-  created_at: string;
 }
 
 export interface MealPlan {

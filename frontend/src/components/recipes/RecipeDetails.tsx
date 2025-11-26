@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRecipes } from "@/lib/hooks/useRecipes";
 
 interface RecipeDetailProps {
@@ -49,104 +49,55 @@ const REVIEWS_PER_PAGE = 5;
 
 export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   const router = useRouter();
+
+  const { 
+    saveRecipe, 
+    unsaveRecipe,
+    reviews,
+    userReview,
+    totalReviewCount,
+    fetchUserReview,
+    fetchReviewCount,
+    fetchReviews,
+    submitReview,
+    removeReview
+  } = useRecipes();
+
   const [isSaved, setIsSaved] = useState(recipe.persistent || false);
   const [isLoading, setIsLoading] = useState(false);
-  const { saveRecipe, unsaveRecipe } = useRecipes();
-
-  const totalTime = recipe.prep_time || 0;
-  const servings = recipe.cached_data?.servings;
-  const ingredients = recipe.cached_data?.extendedIngredients || [];
-  const instructions = recipe.cached_data?.analyzedInstructions;
 
   // Review state
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
-  const [userReview, setUserReview] = useState<Review | null>(null);
   const [newRating, setNewRating] = useState(0);
   const [newComment, setNewComment] = useState("");
   const [hoveredStar, setHoveredStar] = useState(0);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0);
-  const [hasMoreReviews, setHasMoreReviews] = useState(false);
-  const [totalReviewCount, setTotalReviewCount] = useState(0);
 
-  // Load user's review separately
-  const loadUserReview = async () => {
-    try {
-      const response = await fetch(
-        `/api/recipes/${recipe.id}/reviews/user`,
-        {
-          credentials: "include",
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        if (data) {
-          setUserReview(data);
-          setNewRating(data.rating);
-          setNewComment(data.comment || "");
-        } else {
-          setUserReview(null);
-          setNewRating(0);
-          setNewComment("");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load user review:", error);
-    }
-  };
-
-  // Load reviews (paginated, excluding user's own review)
-  const loadReviews = async (page: number) => {
+  const loadData = useCallback(async () => {
     setIsLoadingReviews(true);
-    try {
-      const response = await fetch(
-        `/api/recipes/${recipe.id}/reviews?page=${page}&limit=${REVIEWS_PER_PAGE}`,
-        {
-          credentials: "include",
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Filter out user's review from the list since it's shown separately
-        const filteredReviews = data?.filter((r: Review) => r.user_id !== userId) || [];
-        setReviews(filteredReviews);
-        
-        // Check if there are more reviews
-        setHasMoreReviews(data.length === REVIEWS_PER_PAGE);
-      }
-    } catch (error) {
-      console.error("Failed to load reviews:", error);
-    } finally {
-      setIsLoadingReviews(false);
-    }
-  };
-
-  // Load total review count
-  const loadTotalReviewCount = async () => {
-    try {
-      const response = await fetch(
-        `/api/recipes/${recipe.id}/reviews/count`,
-        {
-          credentials: "include",
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setTotalReviewCount(data.count || 0);
-      }
-    } catch (error) {
-      console.error("Failed to load review count:", error);
-    }
-  };
+    await Promise.all([
+      fetchUserReview(recipe.id),
+      fetchReviewCount(recipe.id),
+      fetchReviews(recipe.id, currentPage, REVIEWS_PER_PAGE, userId)
+    ]);
+    setIsLoadingReviews(false);
+  }, [recipe.id, currentPage, userId, fetchUserReview, fetchReviewCount, fetchReviews]);
 
   useEffect(() => {
-    loadUserReview();
-    loadReviews(currentPage);
-    loadTotalReviewCount();
-  }, [recipe.id, userId, currentPage]);
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (userReview) {
+      setNewRating(userReview.rating);
+      setNewComment(userReview.comment || "");
+    } else {
+      setNewRating(0);
+      setNewComment("");
+    }
+  }, [userReview]);
 
   const handleSaveToggle = async () => {
     setIsLoading(true);
@@ -168,76 +119,32 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
   };
 
   const handleSubmitReview = async () => {
-    if (newRating === 0) {
-      alert("Please select a rating");
-      return;
+    if (newRating === 0) return alert("Please select a rating");
+    
+    setIsLoading(true);
+    const success = await submitReview(recipe.id, newRating, newComment);
+    if (success) {
+      // Refresh the current page to ensure everything stays in sync
+      await fetchReviews(recipe.id, currentPage, REVIEWS_PER_PAGE, userId);
     }
-
-    setIsSubmittingReview(true);
-    try {
-      const response = await fetch(`/api/recipes/${recipe.id}/reviews`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          rating: newRating.toString(),
-          comment: newComment.trim() || null,
-        }),
-      });
-
-      if (response.ok) {
-        // Reload user's review, current page, and count
-        await loadUserReview();
-        await loadReviews(currentPage);
-        await loadTotalReviewCount();
-      } else {
-        const error = await response.text();
-        alert(`Failed to submit review: ${error}`);
-      }
-    } catch (error) {
-      console.error("Failed to submit review:", error);
-      alert("Failed to submit review");
-    } finally {
-      setIsSubmittingReview(false);
-    }
+    setIsLoading(false);
   };
 
   const handleDeleteReview = async () => {
-    if (
-      !userReview ||
-      !confirm("Are you sure you want to delete your review?")
-    ) {
-      return;
-    }
+    if (!userReview || !confirm("Are you sure you want to delete your review?")) return;
 
-    try {
-      const response = await fetch(
-        `/api/recipes/${recipe.id}/reviews/${userReview.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
-
-      if (response.ok) {
-        setUserReview(null);
-        setNewRating(0);
-        setNewComment("");
-        
-        // Reload reviews and count
-        await loadReviews(currentPage);
-        await loadTotalReviewCount();
-      } else {
-        const error = await response.text();
-        alert(`Failed to delete review: ${error}`);
-      }
-    } catch (error) {
-      console.error("Failed to delete review:", error);
-      alert("Failed to delete review");
+    setIsLoading(true);
+    const success = await removeReview(recipe.id, userReview.id);
+    if (success) {
+      setNewRating(0);
+      setNewComment("");
+      await fetchReviews(recipe.id, currentPage, REVIEWS_PER_PAGE, userId);
     }
+    setIsLoading(false);
   };
+
+  const totalPages = Math.ceil(totalReviewCount / REVIEWS_PER_PAGE);
+  const hasMoreReviews = currentPage < totalPages - 1;
 
   const handleNextPage = () => {
     if (hasMoreReviews) {
@@ -251,7 +158,10 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
     }
   };
 
-  const totalPages = Math.ceil(totalReviewCount / REVIEWS_PER_PAGE);
+  const totalTime = recipe.prep_time || 0;
+  const servings = recipe.cached_data?.servings;
+  const ingredients = recipe.cached_data?.extendedIngredients || [];
+  const instructions = recipe.cached_data?.analyzedInstructions;
   const averageRating = recipe.rating || 0;
 
   return (
@@ -276,12 +186,12 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             <div className="flex flex-wrap gap-2 mb-4">
               {recipe.cuisines &&
                 recipe.cuisines.map((cuisine) => (
-                  <Badge key={cuisine} variant="secondary">
+                  <Badge key={cuisine} variant="secondary" className="bg-blue-300">
                     {cuisine}
                   </Badge>
                 ))}
               {recipe.diets?.map((diet) => (
-                <Badge key={diet} variant="outline">
+                <Badge key={diet} variant="outline" className="bg-green-300">
                   {diet}
                 </Badge>
               ))}
@@ -496,9 +406,9 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
             <div className="flex gap-2">
               <Button
                 onClick={handleSubmitReview}
-                disabled={isSubmittingReview || newRating === 0}
+                disabled={isLoading || newRating === 0}
               >
-                {isSubmittingReview
+                {isLoading
                   ? "Submitting..."
                   : userReview
                   ? "Update Review"
