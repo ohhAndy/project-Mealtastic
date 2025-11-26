@@ -130,14 +130,14 @@ export default function RecipeCard({ recipe, onSaveToggle }: RecipeCardProps) {
             return (
               <div key={index} className="relative inline-block">
                 {/* 1. Background Star (Gray Outline) */}
-                <Star size={4} className="text-gray-300 fill-transparent" />
+                <Star size={8} className="text-gray-300 fill-transparent" />
 
                 {/* 2. Foreground Star (Yellow Filled) - Clipped by width */}
                 <div
                   className="absolute top-0 left-0 overflow-hidden"
                   style={{ width: `${fillPercentage}%` }}
                 >
-                  <Star size={4} className="text-yellow-400 fill-yellow-400" />
+                  <Star size={8} className="text-yellow-400 fill-yellow-400" />
                 </div>
               </div>
             );

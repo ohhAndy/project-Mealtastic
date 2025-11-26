@@ -201,7 +201,7 @@ export function useRecipes() {
   const submitReview = useCallback(async (recipeId: string, rating: number, comment: string) => {
     try {
       await upsertReviewAPI(recipeId, { 
-        rating: rating, 
+        rating: rating.toString(), 
         comment: comment.trim() || "" 
       });
       

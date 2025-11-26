@@ -129,7 +129,7 @@ export async function getSavedRecipesAPI(params?: { page?: number; limit?: numbe
   }
 }
 
-export async function upsertReviewAPI(id: string, data: { rating: number; comment: string }) {
+export async function upsertReviewAPI(id: string, data: { rating: string; comment: string }) {
   try {
     const res = await fetch(`/api/recipes/${id}/reviews`, {
       method: "PUT",
