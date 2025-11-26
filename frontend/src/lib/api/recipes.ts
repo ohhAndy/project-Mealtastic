@@ -141,7 +141,7 @@ export async function upsertReviewAPI(id: string, data: { rating: string; commen
     });
 
     if (!res.ok) throw new Error(`Failed to post review: ${res.status}`);
-    return res.json();
+    return true;
   } catch (error) {
     console.error("Error posting review:", error);
   }
