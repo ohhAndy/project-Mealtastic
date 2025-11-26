@@ -166,6 +166,7 @@ export async function getReviewsAPI(id: string, params?: { page?: number; limit?
     return res.json();
   } catch (error) {
     console.error("Error fetching review:", error);
+    throw error;
   }
 }
 
@@ -180,7 +181,7 @@ export async function deleteReviewAPI(recipeId: string, reviewId: string) {
         const text = await res.text();
         throw new Error(text || `Failed to delete review: ${res.status}`);
     }
-    return res.json();
+    return true;
   } catch (error) {
     console.error("Error deleting review:", error);
     throw error;

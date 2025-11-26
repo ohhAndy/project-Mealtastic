@@ -210,7 +210,6 @@ export function useRecipes() {
       await fetchReviewCount(recipeId);
       return true;
     } catch (err) {
-      console.log(err);
       const msg = err instanceof Error ? err.message : "Failed to submit review";
       toast.error("Error", { description: msg });
       return false;
