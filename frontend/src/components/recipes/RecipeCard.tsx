@@ -7,7 +7,7 @@ import { Recipe } from "@/types";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Users, Heart } from "lucide-react";
+import { Clock, Users, Heart, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRecipes } from "@/lib/hooks/useRecipes";
 
@@ -107,17 +107,42 @@ export default function RecipeCard({ recipe, onSaveToggle }: RecipeCardProps) {
 
           <div className="flex flex-wrap gap-2">
             {recipe.cuisines && recipe.cuisines.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs bg-blue-300">
                 {recipe.cuisines[0]}
               </Badge>
             )}
             {recipe.diets?.slice(0, 2).map((diet) => (
-              <Badge key={diet} variant="outline" className="text-xs">
+              <Badge
+                key={diet}
+                variant="outline"
+                className="text-xs bg-green-300"
+              >
                 {diet}
               </Badge>
             ))}
           </div>
         </CardContent>
+        <CardFooter>
+          {Array.from({ length: 5 }).map((_, index) => {
+            const fillPercentage =
+              Math.max(0, Math.min(1, (recipe.rating || 0) - index)) * 100;
+
+            return (
+              <div key={index} className="relative inline-block">
+                {/* 1. Background Star (Gray Outline) */}
+                <Star size={4} className="text-gray-300 fill-transparent" />
+
+                {/* 2. Foreground Star (Yellow Filled) - Clipped by width */}
+                <div
+                  className="absolute top-0 left-0 overflow-hidden"
+                  style={{ width: `${fillPercentage}%` }}
+                >
+                  <Star size={4} className="text-yellow-400 fill-yellow-400" />
+                </div>
+              </div>
+            );
+          })}
+        </CardFooter>
       </Card>
     </Link>
   );

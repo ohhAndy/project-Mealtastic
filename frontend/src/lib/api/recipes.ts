@@ -1,5 +1,28 @@
 import { RecipeSearchParams } from "@/types";
 
+export interface CreateRecipeData {
+  title: string;
+  image?: string;
+  readyInMinutes?: number;
+  servings?: number;
+  cuisines?: string[];
+  diets?: string[];
+  extendedIngredients: {
+    name: string;
+    amount: number;
+    unit: string;
+  }[];
+  analyzedInstructions: {
+    name: string;
+    steps: {
+      number: number;
+      step: string;
+      ingredients: string[];
+      equipment: string[];
+    }[];
+  }[];
+}
+
 export async function searchRecipesAPI(
   params: RecipeSearchParams
 ) {
@@ -34,6 +57,29 @@ export async function getRecipeByIdAPI(id: string) {
     return res.json();
   } catch (error) {
     console.error("Error fetching recipe:", error);
+  }
+}
+
+export async function createRecipeAPI(data: CreateRecipeData) {
+  try {
+    const res = await fetch("/api/recipes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || `Failed to create recipe: ${res.status}`);
+    }
+
+    return res.json();
+  } catch (error) {
+    console.error("Error creating recipe:", error);
+    throw error; 
   }
 }
 
@@ -83,10 +129,10 @@ export async function getSavedRecipesAPI(params?: { page?: number; limit?: numbe
   }
 }
 
-export async function postReviewAPI(id: string, data: { rating: number; comment: string }) {
+export async function upsertReviewAPI(id: string, data: { rating: number; comment: string }) {
   try {
     const res = await fetch(`/api/recipes/${id}/reviews`, {
-      method: "POST",
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
@@ -120,5 +166,52 @@ export async function getReviewsAPI(id: string, params?: { page?: number; limit?
     return res.json();
   } catch (error) {
     console.error("Error fetching review:", error);
+  }
+}
+
+export async function deleteReviewAPI(recipeId: string, reviewId: string) {
+  try {
+    const res = await fetch(`/api/recipes/${recipeId}/reviews/${reviewId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Failed to delete review: ${res.status}`);
+    }
+    return res.json();
+  } catch (error) {
+    console.error("Error deleting review:", error);
+    throw error;
+  }
+}
+
+export async function getUserReviewAPI(recipeId: string) {
+  try {
+    const res = await fetch(`/api/recipes/${recipeId}/reviews/user`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`Failed to get user review: ${res.status}`);
+
+    return res.json(); 
+  } catch (error) {
+    console.error("Error fetching user review:", error);
+    throw error;
+  }
+}
+
+export async function getReviewCountAPI(recipeId: string) {
+  try {
+    const res = await fetch(`/api/recipes/${recipeId}/reviews/count`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`Failed to get review count: ${res.status}`);
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching review count:", error);
+    throw error;
   }
 }

@@ -1,14 +1,17 @@
 import { useState, useCallback, useEffect } from "react";
-import { Recipe, RecipeSearchParams } from "@/types";
+import { Recipe, RecipeSearchParams, Review } from "@/types";
 import { toast } from "sonner";
 import {
+  deleteReviewAPI,
   getRecipeByIdAPI,
+  getReviewCountAPI,
   getReviewsAPI,
   getSavedRecipesAPI,
-  postReviewAPI,
+  getUserReviewAPI,
   saveRecipeAPI,
   searchRecipesAPI,
   unsaveRecipeAPI,
+  upsertReviewAPI,
 } from "../api/recipes";
 
 export function useRecipes() {
@@ -17,6 +20,10 @@ export function useRecipes() {
   const [error, setError] = useState<string | null>(null);
   const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
   const [totalResults, setTotalResults] = useState<number>(0);
+
+  const [reviews, setReviews] = useState<Review[]>([]); 
+  const [userReview, setUserReview] = useState<Review | null>(null);
+  const [totalReviewCount, setTotalReviewCount] = useState(0);
 
   // Load saved recipe IDs on mount
   useEffect(() => {
@@ -149,53 +156,98 @@ export function useRecipes() {
     []
   );
 
-  const postReview = useCallback(
-    async (id: string, rating: number, comment: string) => {
-      try {
-        await postReviewAPI(id, { rating, comment });
-        toast.success("Review posted", {
-          description: "Your review has been added.",
-        });
-        return true;
-      } catch (err) {
-        toast.error("Error", {
-          description:
-            err instanceof Error ? err.message : "Failed to post review",
-        });
-        return false;
-      }
-    },
-    []
-  );
+  const fetchUserReview = useCallback(async (recipeId: string) => {
+    try {
+      const data = await getUserReviewAPI(recipeId);
+      setUserReview(data);
+      return data;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  }, []);
 
-  const getReviews = useCallback(
-    async (id: string, params?: { page?: number; limit?: number }) => {
-      try {
-        const data = await getReviewsAPI(id, params);
-        return Array.isArray(data) ? data : [];
-      } catch (err) {
-        toast.error("Error", {
-          description:
-            err instanceof Error ? err.message : "Failed to fetch reviews",
-        });
-        return [];
-      }
-    },
-    []
-  );
+  const fetchReviewCount = useCallback(async (recipeId: string) => {
+    try {
+      const data = await getReviewCountAPI(recipeId);
+      setTotalReviewCount(data.count);
+      return data.count;
+    } catch (err) {
+      console.error(err);
+      return 0;
+    }
+  }, []);
+
+  // Updated to use Review[] type
+  const fetchReviews = useCallback(async (recipeId: string, page: number, limit: number, currentUserId?: string) => {
+    try {
+      // Ensure getReviewsAPI in api/recipes.ts is also typed to return Promise<Review[]>
+      // If it returns 'any', we cast it here, but ideally update that file too.
+      const data = await getReviewsAPI(recipeId, { page, limit }) as Review[];
+      
+      const filtered = currentUserId 
+        ? data.filter((r) => r.user_id !== currentUserId)
+        : data;
+      
+      setReviews(filtered);
+      return filtered;
+    } catch (err) {
+      toast.error("Failed to load reviews");
+      setReviews([]);
+      return [];
+    }
+  }, []);
+
+  const submitReview = useCallback(async (recipeId: string, rating: number, comment: string) => {
+    try {
+      await upsertReviewAPI(recipeId, { 
+        rating: rating, 
+        comment: comment.trim() || "" 
+      });
+      
+      toast.success("Review submitted!");
+      await fetchUserReview(recipeId);
+      await fetchReviewCount(recipeId);
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to submit review";
+      toast.error("Error", { description: msg });
+      return false;
+    }
+  }, [fetchUserReview, fetchReviewCount]);
+
+  const removeReview = useCallback(async (recipeId: string, reviewId: string) => {
+    try {
+      await deleteReviewAPI(recipeId, reviewId);
+      toast.success("Review deleted");
+      setUserReview(null);
+      await fetchReviewCount(recipeId);
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete review";
+      toast.error("Error", { description: msg });
+      return false;
+    }
+  }, [fetchReviewCount]);
 
   return {
     recipes,
     isLoading,
     error,
+    reviews,          
+    userReview,       
+    totalReviewCount,
     searchRecipes,
     getRecipeById,
     isRecipeSaved,
     saveRecipe,
     unsaveRecipe,
     getSavedRecipes,
-    postReview,
-    getReviews,
+    fetchReviews, 
+    fetchUserReview, 
+    fetchReviewCount, 
+    submitReview, 
+    removeReview,
     totalResults,
   };
 }
