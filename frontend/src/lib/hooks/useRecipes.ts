@@ -16,6 +16,7 @@ export function useRecipes() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
+  const [totalResults, setTotalResults] = useState<number>(0);
 
   // Load saved recipe IDs on mount
   useEffect(() => {
@@ -37,7 +38,18 @@ export function useRecipes() {
     try {
       const data = await searchRecipesAPI(params);
 
-      setRecipes(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        // Fallback if API returns just an array
+        setRecipes(data);
+        setTotalResults(data.length); 
+      } else if (data && (data.results)) {
+        // Handle paginated response object
+        setRecipes(data.results || []);
+        setTotalResults(data.totalResults || 0);
+      } else {
+        setRecipes([]);
+        setTotalResults(0);
+      }
       return data;
     } catch (err) {
       const errorMsg =
@@ -184,5 +196,6 @@ export function useRecipes() {
     getSavedRecipes,
     postReview,
     getReviews,
+    totalResults,
   };
 }

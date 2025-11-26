@@ -23,7 +23,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     // still need to include this since searches won't be stored in database thus won't be part of the initial memcached warming up
     let sql_query = 
     `
-    SELECT r.*
+    SELECT r.*, COUNT(*) OVER() as total_count
     FROM recipes r
     JOIN user_preferences p ON p.user_id = $1
     WHERE (LOWER(r.title) LIKE LOWER($2) OR LOWER(r.cached_data->>'summary') LIKE LOWER($2))
@@ -45,8 +45,11 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
 
     let result = await pool.query(sql_query, params);
     if (result.rows.length > 0) {
-      cacheSet(cache_key, result.rows, 0);
-      return res.json(result.rows);
+      const totalResults = parseInt(result.rows[0].total_count);
+      const responsePayload = { results: result.rows, totalResults };
+      
+      cacheSet(cache_key, responsePayload, 0);
+      return res.json(responsePayload);
     }
 
 
@@ -70,6 +73,8 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     const response = await fetch(spoonacular_url);
     if (!response.ok) { return response.text().then(text => { throw new Error(`Spoonacular: ${text} (status: ${response.status})`)}); }
     const recipe_data = await response.json();
+    const totalResults = recipe_data.totalResults || 0;
+
     const recipes = recipe_data.results || [];
     const recipe_list: any[] = [];
     for (let recipe of recipes) {
@@ -85,7 +90,10 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
         rating: 0
       });
     }
-    cacheSet(cache_key, recipe_list, 0); // forever storing
+
+    const responsePayload = { results: recipe_list, totalResults };
+
+    cacheSet(cache_key, responsePayload, 0); // forever storing
     await Promise.all(
       recipe_list.map(async (recipe: any) => {
         cacheSet(getRecipeKey(recipe.id?.toString()), recipe, 0);
@@ -106,7 +114,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
         });
       })
     );
-    return res.json(recipe_list);
+    return res.json(responsePayload);
   }
   catch(err) {
     if (err instanceof Error) {
