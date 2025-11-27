@@ -3,13 +3,10 @@ import { genSalt, hash, compare } from "bcrypt";
 import { serialize } from "cookie";
 import pool from "../db";
 import { DatabaseError } from "pg";
+import * as authQuery from "../queries/authQueries";
 
 // all sql queries and promises code help from chatgpt
-export async function register(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function register(req: Request, res: Response, next: NextFunction) {
   if (!("name" in req.body)) return res.status(400).end("name is missing");
   if (!("email" in req.body)) return res.status(400).end("email is missing");
   if (!("password" in req.body))
@@ -18,19 +15,13 @@ export async function register(
   let email = req.body.email;
   let password = req.body.password;
   try {
-    const existing_email = await pool.query(
-      "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email]
-    );
+    const existing_email = await pool.query(authQuery.getUserWithEmail, [email]);
     if (existing_email.rows.length > 0)
       return res.status(409).end("Email " + email + " already exists");
     // generate a new salt and hash
     const salt = await genSalt(10);
     const hashed = await hash(password, salt);
-    const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *`,
-      [name, email, hashed]
-    );
+    const result = await pool.query(authQuery.insertUser, [name, email, hashed]);
     const user = result.rows[0];
     req.session.userId = user.id;
     res.setHeader(
@@ -43,15 +34,13 @@ export async function register(
       })
     );
 
-    await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.id]);
+    await pool.query(authQuery.insertUserPreferences, [user.id]);
 
     return res.status(200).json({
       id: user.id,
       email: user.email,
       name: user.name,
     });
-
-
   } catch (err) {
     if (err instanceof DatabaseError) return res.status(500).end(err.message);
     return res.status(500).end(err);
@@ -65,10 +54,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   let email = req.body.email;
   let password = req.body.password;
   try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE email = $1 LIMIT 1",
-      [email]
-    );
+    const result = await pool.query(authQuery.getUserWithEmail, [email]);
     if (result.rows.length == 0) return res.status(401).end("access denied");
     const user = result.rows[0];
 
@@ -105,10 +91,7 @@ export async function profile(req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    const result = await pool.query(
-      "SELECT id, name, email FROM users WHERE id = $1 LIMIT 1",
-      [req.session.userId]
-    );
+    const result = await pool.query(authQuery.getUserWithID, [req.session.userId]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });

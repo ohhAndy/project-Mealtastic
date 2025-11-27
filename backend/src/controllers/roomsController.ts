@@ -1,26 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import pool from "../db";
+import * as roomsQuery from "../queries/roomsQueries";
 
 type SignalMessage =
   | {
-      type: "offer";
-      from: string;
-      username: string,
-      to: string;
-      data: RTCSessionDescriptionInit;
-    }
+    type: "offer";
+    from: string;
+    username: string,
+    to: string;
+    data: RTCSessionDescriptionInit;
+  }
   | {
-      type: "answer";
-      from: string;
-      to: string;
-      data: RTCSessionDescriptionInit;
-    }
+    type: "answer";
+    from: string;
+    to: string;
+    data: RTCSessionDescriptionInit;
+  }
   | { type: "ice"; from: string; to: string; data: RTCIceCandidateInit }
   | { type: "peer-joined" | "peer-left" | "room-deleted"; from: string }
   | { type: "chat"; from: string; content: string; timestamp?: string };
 
-// ---------- In-memory per-peer signal queues ----------
-// key = `${roomId}:${peerId}` → array of SignalMessage
 const signalQueues = new Map<string, SignalMessage[]>();
 
 function queueKey(roomId: string, peerId: string) {
@@ -45,15 +44,12 @@ function dequeueSignal(roomId: string, peerId: string): SignalMessage | undefine
 }
 
 async function getPeers(roomId: string) {
-  const result = await pool.query("SELECT * FROM peers WHERE room_id = $1", [roomId]);
+  const result = await pool.query(roomsQuery.getRoomPeers, [roomId]);
   return result.rows;
 }
 
 async function getPeerIdForUser(roomId: string, userId: string) {
-  const { rows } = await pool.query(
-    "SELECT id FROM peers WHERE room_id = $1 AND user_id = $2",
-    [roomId, userId]
-  );
+  const { rows } = await pool.query(roomsQuery.getUserPeer, [roomId, userId]);
   return rows[0]?.id as string | undefined;
 }
 
@@ -61,16 +57,17 @@ export async function createRoom(req: Request, res: Response, next: NextFunction
   try {
     const recipe_id = req.body.recipe_id;
     const recipe_name = req.body.recipe_name;
-    let result = await pool.query("SELECT * FROM rooms WHERE owner_id = $1;", [req.session.userId]);
-    if (result.rows.length > 0) {
+
+    const userRoomsResult = await pool.query(roomsQuery.getUserRooms, [req.session.userId]);
+    if (userRoomsResult.rows.length > 0)
       return res.status(403).end("Already owner of another room. Delete previous room before opening another.;");
-    }
-    result = await pool.query("SELECT name FROM users WHERE id = $1", [req.session.userId]);
-    const owner_name = result.rows[0].name;
-    result = await pool.query("INSERT INTO rooms (owner_id, owner_name, recipe_id, recipe_name) VALUES ($1, $2, $3, $4) RETURNING *;", [req.session.userId, owner_name, recipe_id, recipe_name]);
-    return res.json(result.rows[0]);
+
+    const userNameResult = await pool.query(roomsQuery.getUserName, [req.session.userId]);
+    const owner_name = userNameResult.rows[0].name;
+    const insertRoomResult = await pool.query(roomsQuery.insertRoom, [req.session.userId, owner_name, recipe_id, recipe_name]);
+    return res.json(insertRoomResult.rows[0]);
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -84,24 +81,22 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
     const page = req.query.page ? parseInt(req.query.page as string) : 0;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
     const recipe_id = req.query.recipe_id ? req.query.recipe_query as string : "";
-    let query_string = "SELECT * FROM rooms LIMIT $1 OFFSET $2;";
+    let query_string = roomsQuery.getRooms;
     let params: any[] = [limit, page * limit]
+
     if (recipe_id) {
-      query_string = "SELECT * FROM rooms WHERE recipe_id = $1 LIMIT $2 OFFSET $3;"
+      query_string = roomsQuery.getRoomsByRecipe;
       params = [recipe_id, limit, page * limit]
     }
-    const result = await pool.query(query_string, params);
-    const countResult = await pool.query(
-      `
-      SELECT COUNT(*) AS total
-      FROM rooms
-      `,
-    );
+
+    const roomsResult = await pool.query(query_string, params);
+    const countResult = await pool.query(roomsQuery.countRooms,);
     const totalItems = parseInt(countResult.rows[0].total, 10);
     const totalPages = Math.ceil(totalItems / limit);
-    return res.json({rooms: result.rows, totalItems: totalItems, totalPages: totalPages });
+
+    return res.json({ rooms: roomsResult.rows, totalItems: totalItems, totalPages: totalPages });
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -114,27 +109,33 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
   try {
     const roomId = req.params.roomId;
 
-    const roomResult = await pool.query("SELECT * FROM rooms WHERE id=$1;", [roomId]);
-    if (roomResult.rows.length < 1)
-        return res.status(404).end("Room not found");
+    const roomResult = await pool.query(roomsQuery.getRoom, [roomId]);
+    if (roomResult.rows.length < 1) return res.status(404).end("Room not found");
 
+    // verify users presence as a peer in room
+    let resultUserPeer = await pool.query(roomsQuery.getUserPeer, [roomId, req.session.userId]);
     const peers = await getPeers(roomId);
-    if (peers.length >= 4)
+    if (peers.length >= 4 && resultUserPeer.rows.length == 0)
       return res.status(403).end("Room is full (max 4 users)");
 
     const isOwner = roomResult.rows[0].owner_id === req.session.userId;
     const recipeName = roomResult.rows[0].recipe_name;
     const ownerName = roomResult.rows[0].owner_name;
 
-    let result = await pool.query("SELECT * FROM peers WHERE room_id = $1 AND user_id = $2;", [roomId, req.session.userId])
-    if (result.rows.length == 0) {
-      const name = await pool.query("SELECT name FROM users WHERE id = $1;", [req.session.userId])
-      result = await pool.query("INSERT INTO peers (room_id, user_id, username) VALUES ($1, $2, $3) RETURNING *;", [roomId, req.session.userId, name.rows[0].name]);
+    if (resultUserPeer.rows.length == 0) {
+      const name = await pool.query(roomsQuery.getUserName, [req.session.userId])
+      resultUserPeer = await pool.query(roomsQuery.insertPeer, [roomId, req.session.userId, name.rows[0].name]);
     }
 
-    return res.json({ newPeer: result.rows[0], otherPeers: peers, isOwner: isOwner, recipeName: recipeName, ownerName: ownerName });
+    return res.json({
+      newPeer: resultUserPeer.rows[0],
+      otherPeers: peers,
+      isOwner: isOwner,
+      recipeName: recipeName,
+      ownerName: ownerName
+    });
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -148,6 +149,7 @@ export async function pollRoom(req: Request, res: Response, next: NextFunction) 
   try {
     const roomId = req.params.roomId;
     const userId = req.session.userId as string | undefined;
+
     if (!userId) return res.status(401).end("Not logged in");
 
     const peerId = await getPeerIdForUser(roomId, userId);
@@ -158,13 +160,13 @@ export async function pollRoom(req: Request, res: Response, next: NextFunction) 
     const start = Date.now();
 
     function tryOnce(): boolean {
-      if(!peerId) return false;
+      if (!peerId) return false;
       const msg = dequeueSignal(roomId, peerId);
       if (msg) {
         res.json(msg);
         return true;
       }
-      return false; 
+      return false;
     }
 
     // Immediate check
@@ -232,7 +234,7 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
 
     return res.status(400).end("Unknown signal type");
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -246,7 +248,7 @@ export async function leaveRoom(req: Request, res: Response, next: NextFunction)
     const roomId = req.params.roomId;
     const peerId = req.params.peerId;
 
-    await pool.query("DELETE FROM peers WHERE id = $1;", [peerId]);
+    await pool.query(roomsQuery.deletePeer, [peerId]);
 
     // Notify remaining peers
     const peers = await getPeers(roomId);
@@ -258,7 +260,7 @@ export async function leaveRoom(req: Request, res: Response, next: NextFunction)
 
     return res.json({ left: true });
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -271,18 +273,14 @@ export async function deleteRoom(req: Request, res: Response, next: NextFunction
   try {
     const roomId = req.params.roomId;
 
-    const { rows } = await pool.query(
-      "SELECT owner_id FROM rooms WHERE id = $1",
-      [roomId]
-    );
-    if (rows.length === 0)
-      return res.status(404).end("Room not found");
+    const { rows } = await pool.query(roomsQuery.getRoom, [roomId]);
+    if (rows.length === 0) return res.status(404).end("Room not found");
     if (rows[0].owner_id !== req.session.userId)
       return res.status(403).end("Only the owner can delete this room");
 
     const peers = await getPeers(roomId);
 
-    await pool.query("DELETE FROM rooms WHERE id = $1;", [roomId]);
+    await pool.query(roomsQuery.deleteRoom, [roomId]);
 
     const payload: SignalMessage = { type: "room-deleted", from: "" } as any;
 
@@ -292,7 +290,7 @@ export async function deleteRoom(req: Request, res: Response, next: NextFunction
 
     return res.json({ deleted: true });
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -303,14 +301,7 @@ export async function deleteRoom(req: Request, res: Response, next: NextFunction
 
 export async function cleanupInactivePeers(threshold: Number) {
   try {
-    const result = await pool.query(
-      `
-      DELETE FROM peers
-      WHERE last_seen < NOW() - ($1 || ' seconds')::interval
-      RETURNING id, room_id
-      `,
-      [threshold.toString()]
-    );
+    const result = await pool.query(roomsQuery.deleteInactivePeers, [threshold.toString()]);
 
     for (const row of result.rows) {
       const roomId = row.room_id as string;
@@ -333,7 +324,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     const from = req.body.from as string;
     const content = req.body.content as string;
 
-    await pool.query("INSERT INTO messages (room_id, sender_id, content) VALUES ($1, $2, $3)", [roomId, from, content]);
+    await pool.query(roomsQuery.insertMessages, [roomId, from, content]);
 
     const peers = await getPeers(roomId);
     const payload: SignalMessage = {
@@ -349,7 +340,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
 
     return res.status(200).end();
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
@@ -361,11 +352,11 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
 export async function getMessages(req: Request, res: Response, next: NextFunction) {
   try {
     const roomId = req.params.roomId;
-    const result = await pool.query("SELECT sender_id AS from, content, created_at FROM messages WHERE room_id = $1 ORDER BY created_at ASC", [roomId]);
+    const result = await pool.query(roomsQuery.getMessages, [roomId]);
 
     res.json(result.rows);
   }
-  catch(err) {
+  catch (err) {
     if (err instanceof Error) {
       console.log(err);
       return res.status(500).end(err.message);
