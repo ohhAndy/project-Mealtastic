@@ -21,7 +21,7 @@ export function useRecipes() {
   const [savedRecipeIds, setSavedRecipeIds] = useState<Set<string>>(new Set());
   const [totalResults, setTotalResults] = useState<number>(0);
 
-  const [reviews, setReviews] = useState<Review[]>([]); 
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [userReview, setUserReview] = useState<Review | null>(null);
   const [totalReviewCount, setTotalReviewCount] = useState(0);
 
@@ -48,8 +48,8 @@ export function useRecipes() {
       if (Array.isArray(data)) {
         // Fallback if API returns just an array
         setRecipes(data);
-        setTotalResults(data.length); 
-      } else if (data && (data.results)) {
+        setTotalResults(data.length);
+      } else if (data && data.results) {
         // Handle paginated response object
         setRecipes(data.results || []);
         setTotalResults(data.totalResults || 0);
@@ -139,7 +139,19 @@ export function useRecipes() {
       setError(null);
       try {
         const data = await getSavedRecipesAPI(params);
-        setRecipes(Array.isArray(data) ? data : []);
+
+        if (Array.isArray(data)) {
+          // Fallback if API returns just an array
+          setRecipes(data);
+          setTotalResults(data.length);
+        } else if (data && data.results) {
+          // Handle paginated response object
+          setRecipes(data.results || []);
+          setTotalResults(data.totalResults || 0);
+        } else {
+          setRecipes([]);
+          setTotalResults(0);
+        }
         return data;
       } catch (err) {
         const errorMsg =
@@ -179,63 +191,82 @@ export function useRecipes() {
   }, []);
 
   // Updated to use Review[] type
-  const fetchReviews = useCallback(async (recipeId: string, page: number, limit: number, currentUserId?: string) => {
-    try {
-      // Ensure getReviewsAPI in api/recipes.ts is also typed to return Promise<Review[]>
-      // If it returns 'any', we cast it here, but ideally update that file too.
-      const data = await getReviewsAPI(recipeId, { page, limit }) as Review[];
-      
-      const filtered = currentUserId 
-        ? data.filter((r) => r.user_id !== currentUserId)
-        : data;
-      
-      setReviews(filtered);
-      return filtered;
-    } catch (err) {
-      toast.error("Failed to load reviews");
-      setReviews([]);
-      return [];
-    }
-  }, []);
+  const fetchReviews = useCallback(
+    async (
+      recipeId: string,
+      page: number,
+      limit: number,
+      currentUserId?: string
+    ) => {
+      try {
+        // Ensure getReviewsAPI in api/recipes.ts is also typed to return Promise<Review[]>
+        // If it returns 'any', we cast it here, but ideally update that file too.
+        const data = (await getReviewsAPI(recipeId, {
+          page,
+          limit,
+        })) as Review[];
 
-  const submitReview = useCallback(async (recipeId: string, rating: number, comment: string) => {
-    try {
-      await upsertReviewAPI(recipeId, { 
-        rating: rating.toString(), 
-        comment: comment.trim() || "" 
-      });
-      
-      toast.success("Review submitted!");
-      await fetchUserReview(recipeId);
-      await fetchReviewCount(recipeId);
-      return true;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to submit review";
-      toast.error("Error", { description: msg });
-      return false;
-    }
-  }, [fetchUserReview, fetchReviewCount]);
+        const filtered = currentUserId
+          ? data.filter((r) => r.user_id !== currentUserId)
+          : data;
 
-  const removeReview = useCallback(async (recipeId: string, reviewId: string) => {
-    try {
-      await deleteReviewAPI(recipeId, reviewId);
-      toast.success("Review deleted");
-      setUserReview(null);
-      await fetchReviewCount(recipeId);
-      return true;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to delete review";
-      toast.error("Error", { description: msg });
-      return false;
-    }
-  }, [fetchReviewCount]);
+        setReviews(filtered);
+        return filtered;
+      } catch (err) {
+        toast.error("Failed to load reviews");
+        setReviews([]);
+        return [];
+      }
+    },
+    []
+  );
+
+  const submitReview = useCallback(
+    async (recipeId: string, rating: number, comment: string) => {
+      try {
+        await upsertReviewAPI(recipeId, {
+          rating: rating.toString(),
+          comment: comment.trim() || "",
+        });
+
+        toast.success("Review submitted!");
+        await fetchUserReview(recipeId);
+        await fetchReviewCount(recipeId);
+        return true;
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to submit review";
+        toast.error("Error", { description: msg });
+        return false;
+      }
+    },
+    [fetchUserReview, fetchReviewCount]
+  );
+
+  const removeReview = useCallback(
+    async (recipeId: string, reviewId: string) => {
+      try {
+        await deleteReviewAPI(recipeId, reviewId);
+        toast.success("Review deleted");
+        setUserReview(null);
+        await fetchReviewCount(recipeId);
+        return true;
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to delete review";
+        toast.error("Error", { description: msg });
+        return false;
+      }
+    },
+    [fetchReviewCount]
+  );
 
   return {
     recipes,
     isLoading,
     error,
-    reviews,          
-    userReview,       
+    reviews,
+    userReview,
     totalReviewCount,
     searchRecipes,
     getRecipeById,
@@ -243,10 +274,10 @@ export function useRecipes() {
     saveRecipe,
     unsaveRecipe,
     getSavedRecipes,
-    fetchReviews, 
-    fetchUserReview, 
-    fetchReviewCount, 
-    submitReview, 
+    fetchReviews,
+    fetchUserReview,
+    fetchReviewCount,
+    submitReview,
     removeReview,
     totalResults,
   };

@@ -243,15 +243,16 @@ export async function getSavedRecipes(req: Request, res: Response, next: NextFun
   const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
   try {
     const result = await pool.query(
-      `SELECT r.*
+      `SELECT r.*, COUNT(*) OVER() as total_count
       FROM recipes r
       JOIN saved_recipes s ON s.recipe_id = r.id AND s.user_id = $1
       ORDER BY s.saved_at DESC
       LIMIT $2 OFFSET $3;`,
       [req.session.userId, limit, limit*page]
     );
-    const cached_recipes = result.rows;
-    return res.json(cached_recipes);
+    const totalResults = parseInt(result.rows[0].total_count);
+    const responsePayload = { results: result.rows, totalResults };
+    return res.json(responsePayload);
     // no need to check spoontacular because all saved recipes will remain cached
   } catch (err) {
     if (err instanceof Error){
