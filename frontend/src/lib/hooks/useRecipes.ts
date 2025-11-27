@@ -30,7 +30,7 @@ export function useRecipes() {
     const loadSavedIds = async () => {
       try {
         const data = await getSavedRecipesAPI({ page: 0, limit: 1000 });
-        const ids = new Set<string>(data.map((recipe: Recipe) => recipe.id));
+        const ids = new Set<string>(data.results.map((recipe: Recipe) => recipe.id));
         setSavedRecipeIds(ids);
       } catch (err) {
         // Silently fail - user might not be logged in yet
