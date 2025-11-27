@@ -408,7 +408,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
                 onClick={handleSubmitReview}
                 disabled={isLoading || newRating === 0}
               >
-                {isLoading
+                {isLoading  
                   ? "Submitting..."
                   : userReview
                   ? "Update Review"
@@ -426,7 +426,7 @@ export default function RecipeDetails({ recipe, userId }: RecipeDetailProps) {
         {/* Reviews List */}
         <Card>
           <CardHeader>
-            <CardTitle>Reviews ({totalReviewCount})</CardTitle>
+            <CardTitle>Reviews ({userReview ? totalReviewCount - 1 : totalReviewCount})</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoadingReviews ? (

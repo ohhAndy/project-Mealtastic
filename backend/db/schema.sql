@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   recipe_id TEXT REFERENCES recipes(id) ON DELETE CASCADE,
   rating INT NOT NULL,
   comment TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (user_id, recipe_id)
 );
 
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS meal_plans (
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   week_start DATE NOT NULL,
   generated BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (user_id, week_start)
 );
 
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS shopping_lists (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   plan_id UUID REFERENCES meal_plans(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (plan_id, user_id)
 );
 
