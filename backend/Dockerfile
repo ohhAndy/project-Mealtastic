@@ -1,3 +1,4 @@
+# chatgpt: https://chatgpt.com/s/t_6928e9f866148191bd4692381a4069ad prompt: *I gave my hw backend dockerfile and it generated this for typescript*
 # ===========================
 # BUILD STAGE
 # ===========================

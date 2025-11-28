@@ -1,3 +1,4 @@
+# chatgpt: https://chatgpt.com/s/t_6928e9cf40548191bee7adbdd0a61919 prompt: need a dockerfile to start my teams next.js frontend
 # ===========================
 # BUILD STAGE
 # ===========================

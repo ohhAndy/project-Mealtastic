@@ -9,6 +9,8 @@ router.post("/register", sanitizeName, checkEmail, authCtrl.register);
 router.post("/login", checkEmail, authCtrl.login);
 router.post("/logout", authCtrl.logout);
 router.get("/profile", authCtrl.profile);
+
+// google authentication using chatgpt: https://chatgpt.com/s/t_6928e2c8e9b881919955bfd7023bdd17
 router.get(
   "/google",
   passport.authenticate("google", {

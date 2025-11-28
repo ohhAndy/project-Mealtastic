@@ -5,6 +5,10 @@ import { getRecipeKey, getSearchKey, cacheSet, cacheGet } from "../config/memcac
 
 dotenv.config();
 
+// initial code using chatgpt: https://chatgpt.com/s/t_6928e6148d0481919362e073f6b6adf0, https://chatgpt.com/s/t_6928e6449210819191b17c1e92bf7276, and https://chatgpt.com/s/t_6928e8233c0c81918ce64a1b899c4a45
+// prompts: 'please give me an example for the search recipes endpoint',
+// 'how does the caching process work if we're taking from spoonacular?' (way before we had caching lecture),
+// 'do the fetching with fetch not axios'
 export async function searchRecipes(req: Request, res: Response, next: NextFunction) {
   const main_query = req.query.query as string;
   const page = req.query.page ? parseInt(req.query.page as string) : 0;
@@ -51,7 +55,6 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
       cacheSet(cache_key, responsePayload, 0);
       return res.json(responsePayload);
     }
-
 
     // not enough results in db, try spoonacular again do this because cache will not be initially storing searches
     const spoonacular_url = new URL("https://api.spoonacular.com/recipes/complexSearch");

@@ -2,7 +2,8 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import pool from '../db';
 
-// chatgpt
+// chatgpt: https://chatgpt.com/s/t_6928e2c8e9b881919955bfd7023bdd17 prompt: what about google auth (after asking about backend format for typescript app of our site idea)
+// and later on: https://chatgpt.com/s/t_69293b76c6408191b6f0b2fb588d82c4 for google calendar feature (dropped due to approval period needed from google)
 
 passport.serializeUser(function (user: any, done) {
   done(null, user.id);
