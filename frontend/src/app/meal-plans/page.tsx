@@ -236,8 +236,8 @@ export default function MealPlannerPage() {
     setLoading(true);
     try {
       const planId = mealPlan.entries[0]?.plan_id;
-      const data = await generateShoppingListAPI(planId);
-      router.push(`/shopping-lists/${data.list_id}`);
+      await generateShoppingListAPI(planId);
+      router.push(`/shopping-lists/${planId}`);
     } catch (err) {
       console.error(err);
       alert(err instanceof Error ? err.message : "Failed to generate shopping list");

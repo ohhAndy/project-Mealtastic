@@ -123,12 +123,7 @@ export function checkQueryPlanId(req: Request, res: Response, next: NextFunction
     next();
 }
 
-export function checkChecked(req: Request, res: Response, next: NextFunction) {
-    if (("checked" in req.body) && (req.body.checked) && !validator.isBoolean(req.body.checked as string)) return res.status(400).end("bad checked input");
-    next();
-}
-
 export function checkQuantity(req: Request, res: Response, next: NextFunction) {
-    if (("quantity" in req.body) && (req.body.quantity !== undefined) && !validator.isNumeric(req.body.quantity as string)) return res.status(400).end("bad quantity input");
+    if (("quantity" in req.body) && (req.body.quantity !== undefined) && (typeof req.body.quantity !== "number")) return res.status(400).end("bad quantity input");
     next();
 }
