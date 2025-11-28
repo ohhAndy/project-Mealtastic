@@ -26,6 +26,7 @@ import Image from "next/image";
 import { RecipeSearchParams } from "@/types";
 import { deleteMealPlanAPI, exportMealPlanToGoogleAPI, generateMealPlanAPI, getMealPlanAPI, updateMealEntryAPI } from "@/lib/api/mealPlans";
 import { searchRecipesAPI } from "@/lib/api/recipes";
+import { generateShoppingListAPI } from "@/lib/api/shoppingLists";
 
 const DAYS = [
   "Monday",
@@ -235,18 +236,8 @@ export default function MealPlannerPage() {
     if (!currentWeekStart || !mealPlan) return;
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/shopping-list/generate?plan_id=${mealPlan.entries[0]?.plan_id}`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to generate shopping list");
-      }
-      const data = await res.json();
+      const planId = mealPlan.entries[0]?.plan_id;
+      const data = await generateShoppingListAPI(planId);
       router.push(`/shopping-lists/${data.list_id}`);
     } catch (err) {
       console.error(err);
