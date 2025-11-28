@@ -22,17 +22,6 @@ const MEAL_TIMES: Record<string, string> = {
   dinner: "23:00",
 };
 
-type MealPlanEntry = {
-  title: string,
-  image_url: string,
-  source: string,
-  id: string,
-  plan_id: string,
-  date: Date,
-  meal_type: "breakfast" | "lunch" | "dinner",
-  recipe_id: string
-}
-
 const WEBSITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL!;
 
 export async function generateWeeklyMealPlan(req: Request, res: Response, next: NextFunction) {
@@ -184,8 +173,18 @@ export async function exportMealPlanICS(req: Request, res: Response) {
       const dtStart = `${date}T${mealTime.replace(":", "")}00Z`;
 
       const [h, m] = mealTime.split(":");
-      const endHour = String(Number(h) + 1).padStart(2, "0");
-      const dtEnd = `${date}T${endHour}${m}00Z`;
+      const endH = Number(h) + 1;
+
+      let dtEnd = "";
+      if (endH === 24) {
+        const nextDay = new Date(entry.date);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        const nextDate = nextDay.toISOString().split("T")[0];
+        dtEnd = `${nextDate}T000000Z`;
+      } else {
+        const endHour = String(endH).padStart(2, "0");
+        dtEnd = `${date}T${endHour}${m}00Z`;
+      }
 
       const uid = `${entry.id}@mealplanner`;
 
