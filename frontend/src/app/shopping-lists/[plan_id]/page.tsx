@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { Trash2, Check } from "lucide-react";
 import { useParams } from "next/navigation";
+import { deleteShoppingItemAPI, getShoppingListDetailsAPI, updateShoppingItemAPI } from "@/lib/api/shoppingLists";
 
 type ShoppingItem = {
   id: string;
@@ -35,11 +36,7 @@ export default function ShoppingListPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/shopping-list/${plan_id}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch shopping list");
-      const data = await res.json(); 
+      const data = await getShoppingListDetailsAPI(plan_id);
       setItems(data.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -54,11 +51,7 @@ export default function ShoppingListPage() {
     setUpdatingItemIds((prev) => new Set(prev).add(item.id));
 
     try {
-      await fetch(`/api/shopping-list/item/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checked: !item.checked }),
-      });
+      await updateShoppingItemAPI(item.id, { checked: !item.checked });
       setItems((prev) =>
         prev.map((i) =>
           i.id === item.id ? { ...i, checked: !i.checked } : i
@@ -82,12 +75,7 @@ export default function ShoppingListPage() {
     setUpdatingItemIds((prev) => new Set(prev).add(item.id));
 
     try {
-      await fetch(`/api/shopping-list/item/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: newQty }),
-      });
-
+      await updateShoppingItemAPI(item.id, { quantity: newQty });
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, quantity: newQty } : i))
       );
@@ -106,10 +94,7 @@ export default function ShoppingListPage() {
     if (!confirm("Delete this item?")) return;
 
     try {
-      await fetch(`/api/shopping-list/item/${itemId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      await deleteShoppingItemAPI(itemId);
       setItems((prev) => prev.filter((i) => i.id !== itemId));
     } catch (err) {
       console.error(err);

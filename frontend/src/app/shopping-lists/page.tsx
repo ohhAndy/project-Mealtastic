@@ -6,6 +6,7 @@ import { Calendar, Trash2, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
+import { deleteShoppingListAPI, generateShoppingListAPI, getShoppingListsAPI } from "@/lib/api/shoppingLists";
 
 interface ShoppingList {
   id: string;
@@ -40,15 +41,10 @@ export default function ShoppingListsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/shopping-list?page=${pageToFetch}&limit=${limit}`,
-        { credentials: "include" }
-      );
-      if (!res.ok) throw new Error("Failed to fetch shopping lists");
-      const data = await res.json();
+      const data = await getShoppingListsAPI(pageToFetch, limit);
       setLists(data.lists || []);
       setTotalPages(data.totalPages || 1);
-    } catch (err) {
+    } catch (err) { 
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
@@ -60,11 +56,7 @@ export default function ShoppingListsPage() {
     setDeletingId(listId);
 
     try {
-      const res = await fetch(`/api/shopping-list/${listId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to delete shopping list");
+      await deleteShoppingListAPI(listId);
       fetchLists(page);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete");
@@ -76,11 +68,7 @@ export default function ShoppingListsPage() {
   const generateThisWeek = async () => {
     setGenerating(true);
     try {
-      const res = await fetch(`/api/shopping-list/generate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to generate shopping list");
+      await generateShoppingListAPI();
       fetchLists(page);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to generate");

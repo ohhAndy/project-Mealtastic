@@ -70,7 +70,7 @@ interface SelectedEntry {
   plan_id?: number;
 }
 
-const ITEMS_PER_PAGE = 9;
+const ITEMS_PER_PAGE = 10;
 
 export default function MealPlannerPage() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
