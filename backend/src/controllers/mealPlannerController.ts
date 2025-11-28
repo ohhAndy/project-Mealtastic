@@ -163,8 +163,7 @@ export async function exportMealPlanICS(req: Request, res: Response) {
     const userId = req.session.userId;
     if (!userId) return res.status(401).end("Unauthorized");
 
-    const weekStart = req.query.week_start as string;
-
+    const weekStart = req.query.week_start as string || getWeekStart();
     const result = await pool.query(mealPlanQuery.getMealPlanEntriesWithUserIDWeek, [userId, weekStart]);
 
     if (result.rows.length === 0) {
@@ -205,7 +204,7 @@ export async function exportMealPlanICS(req: Request, res: Response) {
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="meal-plan-${weekStart}.ics"`
+      `attachment; filename="meal-plan.ics"`
     );
 
     res.send(ics);

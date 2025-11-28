@@ -11,6 +11,6 @@ router.post('/generate', isAuthenticated, mealPlannerCtrl.generateWeeklyMealPlan
 router.get('/', isAuthenticated, checkWeekStart, mealPlannerCtrl.getMealPlan);
 router.patch('/entry/:id', isAuthenticated, checkIdUUID, checkRecipeId, mealPlannerCtrl.updateMealPlanEntry);
 router.delete('/:id', isAuthenticated, checkIdUUID, mealPlannerCtrl.deleteMealPlan);
-router.put('/export/ics', isAuthenticated, checkWeekStart, mealPlannerCtrl.exportMealPlanICS);
+router.get('/export/ics', isAuthenticated, checkWeekStart, mealPlannerCtrl.exportMealPlanICS);
 
 export default router;
