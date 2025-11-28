@@ -7,10 +7,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./certs:/etc/nginx/certs:ro
-      - ./vhost.d:/etc/nginx/vhost.d
-      - ./html:/usr/share/nginx/html
-      - /var/run/docker.sock:/tmp/docker.sock:ro
+        - /var/run/docker.sock:/tmp/docker.sock:ro
+        - certs:/etc/nginx/certs
+        - vhost-d:/etc/nginx/vhost.d
+        - html:/usr/share/nginx/html
+        - acme:/etc/acme.sh
     networks:
       - proxy
 
@@ -23,8 +24,9 @@ services:
     volumes_from:
        - "nginx-proxy"
     volumes:
-       - ./certs:/etc/nginx/certs:rw
-       - /var/run/docker.sock:/var/run/docker.sock:ro
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+        - certs:/etc/nginx/certs
+        - acme:/etc/acme.sh
     environment:
         - DEFAULT_EMAIL=${email}
     networks:
@@ -42,9 +44,9 @@ services:
     networks:
       - proxy
     environment:
-      - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
-      - LETSENCRYPT_HOST=project-mealtastic.amazingcloud.space
-      - NEXT_PUBLIC_API_URL=project-mealtastic.amazingcloud.space
+      - VIRTUAL_HOST=mealtastic.me
+      - LETSENCRYPT_HOST=mealtastic.me
+      - NEXT_PUBLIC_API_URL=mealtastic.me
       - VIRTUAL_PORT=3000
     depends_on:
       - backend
@@ -59,7 +61,7 @@ services:
     depends_on:
       - db
     environment:
-      - VIRTUAL_HOST=project-mealtastic.amazingcloud.space
+      - VIRTUAL_HOST=mealtastic.me
       - VIRTUAL_PATH=/api/
       - VIRTUAL_PORT=3001
     networks:
