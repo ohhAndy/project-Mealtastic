@@ -9,6 +9,7 @@ import {
   Search,
   RefreshCw,
   Trash2,
+  ChevronRight,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ import {
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { RecipeSearchParams } from "@/types";
+import { deleteMealPlanAPI, exportMealPlanToGoogleAPI, generateMealPlanAPI, getMealPlanAPI, updateMealEntryAPI } from "@/lib/api/mealPlans";
+import { searchRecipesAPI } from "@/lib/api/recipes";
 
 const DAYS = [
   "Monday",
@@ -65,6 +69,8 @@ interface SelectedEntry {
   plan_id?: number;
 }
 
+const ITEMS_PER_PAGE = 9;
+
 export default function MealPlannerPage() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState<string | null>(null);
@@ -79,6 +85,9 @@ export default function MealPlannerPage() {
   const [searching, setSearching] = useState<boolean>(false);
   const router = useRouter();
 
+  const [modalPage, setModalPage] = useState(0);
+  const [modalTotalResults, setModalTotalResults] = useState(0);
+
   useEffect(() => {
     setCurrentWeekStart(getWeekStart(new Date()));
   }, []);
@@ -86,6 +95,7 @@ export default function MealPlannerPage() {
   useEffect(() => {
     fetchMealPlan(currentWeekStart);
   }, [currentWeekStart]);
+
 
   function getWeekStart(date: Date): string {
     const d = new Date(date);
@@ -126,18 +136,8 @@ export default function MealPlannerPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meal-planner?week_start=${weekStart}`, {
-        method: "GET",
-        credentials: "include",
-      });
-      if (res.status === 404) {
-        setMealPlan(null);
-      } else if (res.ok) {
-        const data: MealPlan = await res.json();
-        setMealPlan(data);
-      } else {
-        throw new Error("Failed to fetch meal plan");
-      }
+      const data = await getMealPlanAPI(weekStart);
+      setMealPlan(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -149,14 +149,7 @@ export default function MealPlannerPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/meal-planner/generate`, {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Failed to generate meal plan");
-      }
+      await generateMealPlanAPI();
       await fetchMealPlan(currentWeekStart);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -170,10 +163,7 @@ export default function MealPlannerPage() {
     setLoading(true);
     try {
       const planId = mealPlan.entries[0]?.plan_id;
-      await fetch(`/api/meal-planner/${planId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      await deleteMealPlanAPI(planId);
       setMealPlan(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -187,12 +177,7 @@ export default function MealPlannerPage() {
     recipeId: number | null
   ): Promise<void> {
     try {
-      await fetch(`/api/meal-planner/entry/${entryId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipe_id: recipeId }),
-        credentials: "include",
-      });
+      await updateMealEntryAPI(entryId, recipeId);
       await fetchMealPlan(currentWeekStart);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -203,15 +188,24 @@ export default function MealPlannerPage() {
     await updateMealEntry(entryId, null);
   }
 
-  async function searchRecipes(): Promise<void> {
+  async function searchRecipes(pageIndex: number = 0): Promise<void> {
     setSearching(true);
+    setModalPage(pageIndex);
+
     try {
-      const res = await fetch(`/api/recipes/search?query=${searchQuery}&limit=10&page=0`, {
-        method: "GET",
-        credentials: "include",
+      const data = await searchRecipesAPI({ 
+        query: searchQuery, 
+        limit: ITEMS_PER_PAGE, 
+        page: pageIndex 
       });
-      const data = await res.json();  
-      setSearchResults(Array.isArray(data) ? data : []);
+      
+      if (Array.isArray(data)) {
+        setSearchResults(data);
+        setModalTotalResults(data.length);
+      } else {
+        setSearchResults(data?.results || []);
+        setModalTotalResults(data?.totalResults || 0);
+      }
     } catch (err) {
       console.error("Search error:", err);
     } finally {
@@ -219,15 +213,17 @@ export default function MealPlannerPage() {
     }
   }
 
+  const handleModalPageChange = (direction: 'next' | 'prev') => {
+    const newPage = direction === 'next' ? modalPage + 1 : modalPage - 1;
+    if (newPage < 0) return;
+    searchRecipes(newPage);
+  };
+
   async function exportToGoogleCalendar(): Promise<void> {
     if (!mealPlan) return;
     try {
       setLoading(true);
-      await fetch(`/api/meal-planner/export/google?week_start=${mealPlan.week_start}`, {
-          method: "PUT",
-          credentials: "include",
-        }
-      );
+      await exportMealPlanToGoogleAPI(mealPlan.week_start);
     } catch (err) {
       console.error("Google Calendar Export error. Make sure to have logged in using Google:", err);
     } finally {
@@ -305,6 +301,7 @@ export default function MealPlannerPage() {
   }
 
   const weekDates = getWeekDates();
+  const modalTotalPages = Math.ceil(modalTotalResults / ITEMS_PER_PAGE);
 
   const { user, isLoading: authLoading } = useRequireAuth();
   if (authLoading || !user) return null;
@@ -611,6 +608,34 @@ export default function MealPlannerPage() {
                 </div>
               )}
             </div>
+
+            {searchResults.length > 0 && (
+              <div className="pt-4 border-t flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleModalPageChange('prev')}
+                  disabled={modalPage === 0 || searching}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Prev
+                </Button>
+                
+                <span className="text-sm text-muted-foreground">
+                  Page {modalPage + 1} of {modalTotalPages || 1}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleModalPageChange('next')}
+                  disabled={(modalPage >= modalTotalPages - 1) || searching}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
