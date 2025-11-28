@@ -170,7 +170,7 @@ export async function exportMealPlanICS(req: Request, res: Response) {
       if (!mealTime) continue;
 
       const date = entry.date.toISOString().split("T")[0];
-      const dtStart = `${date}T${mealTime.replace(":", "")}00Z`;
+      const dtStart = `${date}T${mealTime.replace(":", "")}00Z`.replace(/[-:]/g, "");
 
       const [h, m] = mealTime.split(":");
       const endH = Number(h) + 1;
@@ -180,10 +180,10 @@ export async function exportMealPlanICS(req: Request, res: Response) {
         const nextDay = new Date(entry.date);
         nextDay.setUTCDate(nextDay.getUTCDate() + 1);
         const nextDate = nextDay.toISOString().split("T")[0];
-        dtEnd = `${nextDate}T000000Z`;
+        dtEnd = `${nextDate}T000000Z`.replace(/[-:]/g, "");
       } else {
         const endHour = String(endH).padStart(2, "0");
-        dtEnd = `${date}T${endHour}${m}00Z`;
+        dtEnd = `${date}T${endHour}${m}00Z`.replace(/[-:]/g, "");
       }
 
       const uid = `${entry.id}@mealplanner`;
