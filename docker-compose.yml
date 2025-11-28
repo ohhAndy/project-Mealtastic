@@ -66,6 +66,7 @@ services:
       - proxy
       - internal
   
+  # initial db setup using chatgpt: https://chatgpt.com/s/t_6928e960bc948191bb143b7247ec6825 prompt: what is the best way to install postgres on my web server?
   db:
     image: postgres:17
     restart: unless-stopped

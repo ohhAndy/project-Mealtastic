@@ -3,19 +3,14 @@ import { Pool } from 'pg';
 import fs from "fs";
 import path from "path";
 
-// chatgpt
+// initial code using chatgpt:https://chatgpt.com/s/t_6928eb0491b08191a457663cf3352e35 prompt: I have my db/schema.sql file how do I run it on postgres? I want to do it db.ts
 // Load environment variables from .env file
 dotenv.config();
 
-// PostgreSQL connection pool configuration using environment variables
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-/**
- * Asynchronously verifies the PostgreSQL connection.
- * Ensures that any issues are logged immediately at application startup.
- */
 async function verifyConnection(): Promise<void> {
   try {
     // Attempt to acquire a client from the pool
@@ -40,11 +35,6 @@ async function initializeSchema() {
   }
 }
 
-// Immediately verify connection upon module load.
 verifyConnection();
-
-// Call this right after connecting
 initializeSchema();
-
-// Export the pool to be used across the application.
 export default pool;

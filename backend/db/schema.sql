@@ -1,3 +1,5 @@
+-- initially generated with chatgpt: https://chatgpt.com/s/t_6928e4ba55108191ad48c46c19ff23ba prompt: convert this prisma schema into postgres tables since I won't be able to use prisma for this project now
+
 -- =========================
 --  USERS
 -- =========================

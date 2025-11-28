@@ -5,7 +5,7 @@ import pool from "../db";
 import { DatabaseError } from "pg";
 import * as authQuery from "../queries/authQueries";
 
-// all sql queries and promises code help from chatgpt
+// used lecture/hw code but all sql queries and promises code help from chatgpt: https://chatgpt.com/s/t_6928e3ebcd708191a55ac7a544d75420 prompt: how would this all look like using SQL queries directly
 export async function register(req: Request, res: Response, next: NextFunction) {
   if (!("name" in req.body)) return res.status(400).end("name is missing");
   if (!("email" in req.body)) return res.status(400).end("email is missing");

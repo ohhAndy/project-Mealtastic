@@ -2,6 +2,12 @@ import { Request, Response, NextFunction } from "express";
 import pool from "../db";
 import * as roomsQuery from "../queries/roomsQueries";
 
+// initial code based on chatgpt response: https://chatgpt.com/s/t_692933dbf154819186bc6db0991dea47, https://chatgpt.com/s/t_692934234d108191942f4b8830dc7094 and https://chatgpt.com/s/t_6929362a73788191b78e959b75e7f41f
+// prompt: 'give me an example of entire rooms backend using express-longpoll',
+// 'but you didn't use the express-long-poll',
+// 'separate it into routes, controllers and app files' a lot of hallucination in these prompts so had to make a lot of compromises
+// later on with the room chats: https://chatgpt.com/s/t_69293765d4388191a8e5ddaba7d30a34
+
 type SignalMessage =
   | {
     type: "offer";

@@ -1,3 +1,5 @@
+// based on chagpt response (my own memcaching was deemed inefficient): https://chatgpt.com/s/t_69293a38d6d08191938612bcbcd63f9c prompt: what would be the best way to implement caching
+
 import Memcached from "memcached";
 import pool from "../db";
 

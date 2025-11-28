@@ -1,3 +1,6 @@
+// both page and [roomId] page initially based on thsi chatgpt response: https://chatgpt.com/s/t_69293708b57c8191b2b452074b48be93 prompt: 'show me how client side would look on a next.js page' (after getting an example backend)
+// and later on with the addition of a chat response: https://chatgpt.com/s/t_692937d436b48191ae9bcd5506a25fd1 a lot of debugging ensued and ended up changing the approach to the polling slightly later on
+// creation of rooms based on recipes initial addition: https://chatgpt.com/s/t_69293e0e0fa4819186953fb9a5ff88f5 and https://chatgpt.com/s/t_69293e2d629c81918ec929466e98af93
 "use client";
 
 import { useEffect, useState } from "react";
