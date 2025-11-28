@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
+import { createRoomAPI, getRoomsAPI } from "@/lib/api/room";
+import { searchRecipesAPI } from "@/lib/api/recipes";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Room {
   id: string;
@@ -27,6 +30,8 @@ interface Recipe {
   ready_in_minutes?: number;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function RoomsPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useRequireAuth();
@@ -43,6 +48,9 @@ export default function RoomsPage() {
   const [searchResults, setSearchResults] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
+  const [modalPage, setModalPage] = useState(0);
+  const [modalTotalResults, setModalTotalResults] = useState(0);
+
   useEffect(() => {
     fetchRooms(page);
   }, [page]);
@@ -52,23 +60,11 @@ export default function RoomsPage() {
   async function fetchRooms(pageToFetch: number) {
     setFetching(true);
     try {
-      const params = new URLSearchParams({
-        page: pageToFetch.toString(),
-        limit: limit.toString(),
-      });
-
-      const res = await fetch(`/api/rooms?${params.toString()}`, {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRooms(data.rooms || []);
-        setTotalPages(data.totalPages || 1);
-      } else {
-        toast.error(data.error || "Failed to load rooms");
-      }
+      const data = await getRoomsAPI({ page: pageToFetch, limit });
+      setRooms(data.rooms || []);
+      setTotalPages(data.totalPages || 1);
     } catch (err) {
-      toast.error("Server not reachable");
+      toast.error(err instanceof Error ? err.message : "Failed to load rooms");
     } finally {
       setFetching(false);
     }
@@ -78,25 +74,10 @@ export default function RoomsPage() {
     setFetching(true);
 
     try {
-      const params = new URLSearchParams({
-        recipe_id: recipeId,
-        page: "0",
-        limit: limit.toString(),
-      });
-
-      const res = await fetch(`/api/rooms?${params.toString()}`, {
-        credentials: "include",
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setRooms(data.rooms || []);
-        setTotalPages(data.totalPages || 1);
-        setPage(0);
-      } else {
-        toast.error(data.error || "No rooms found");
-      }
+      const data = await getRoomsAPI({ page: 0, limit, recipe_id: recipeId });
+      setRooms(data.rooms || []);
+      setTotalPages(data.totalPages || 1);
+      setPage(0);
     } catch {
       toast.error("Server error");
     } finally {
@@ -104,16 +85,24 @@ export default function RoomsPage() {
     }
   }
 
-  async function searchRecipes() {
+  async function searchRecipes(pageIndex: number = 0) {
     if (!searchQuery) return;
     setSearching(true);
+    setModalPage(pageIndex);
+
     try {
-      const res = await fetch(
-        `/api/recipes/search?query=${encodeURIComponent(searchQuery)}&limit=10&page=0`,
-        { credentials: "include" }
-      );
-      const data = await res.json();
-      setSearchResults(Array.isArray(data) ? data : []);
+      const data = await searchRecipesAPI({ 
+        query: searchQuery, 
+        limit: ITEMS_PER_PAGE, 
+        page: pageIndex, 
+      });
+      if (Array.isArray(data)) {
+        setSearchResults(data);
+        setModalTotalResults(data.length);
+      } else {
+        setSearchResults(data?.results || []);
+        setModalTotalResults(data?.totalResults || 0);
+      }
     } catch (err) {
       console.error("Search error:", err);
     } finally {
@@ -121,14 +110,32 @@ export default function RoomsPage() {
     }
   }
 
+  const handleModalPageChange = (direction: 'next' | 'prev') => {
+    const newPage = direction === 'next' ? modalPage + 1 : modalPage - 1;
+    if (newPage < 0) return;
+    searchRecipes(newPage);
+  };
+
   async function handleCreateRoom() {
     setModalMode("create");
     setShowModal(true);
+
+    setSearchQuery("");
+    setSearchResults([]);
+    setModalPage(0);
+    setModalTotalResults(0);
+    setSelectedRecipe(null);
   }
 
   async function handleSearchRooms() {
     setModalMode("search");
     setShowModal(true);
+
+    setSearchQuery("");
+    setSearchResults([]);
+    setModalPage(0);
+    setModalTotalResults(0);
+    setSelectedRecipe(null);
   }
 
   async function handleConfirm() {
@@ -138,23 +145,14 @@ export default function RoomsPage() {
       // create new room
       setLoading(true);
       try {
-        const res = await fetch("/api/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            recipe_id: selectedRecipe.id,
-            recipe_name: selectedRecipe.title,
-          }),
+        const data = await createRoomAPI({
+          recipe_id: selectedRecipe.id,
+          recipe_name: selectedRecipe.title,
         });
-
-        const data = await res.json();
-        if (res.ok) {
-          toast.success("Room created!");
-          router.push(`/room/${data.id}`);
-        } else {
-          toast.error(data.error || "Failed to create room");
-        }
+        toast.success("Room created!");
+        router.push(`/room/${data.id}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to create room");
       } finally {
         setLoading(false);
         setShowModal(false);
@@ -175,6 +173,8 @@ export default function RoomsPage() {
   function handleClickRecipe(recipeId: string) {
     router.push(`/recipes/${recipeId}`);
   }
+
+  const modalTotalPages = Math.ceil(modalTotalResults / ITEMS_PER_PAGE);
 
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-50 to-slate-100 p-8">
@@ -197,17 +197,16 @@ export default function RoomsPage() {
               Create a Room
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={handleSearchRooms}
-            >
+            <Button variant="outline" onClick={handleSearchRooms}>
               Search Rooms by Recipe
             </Button>
           </div>
         </div>
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="text-xl font-semibold">Available Rooms</CardTitle>
+            <CardTitle className="text-xl font-semibold">
+              Available Rooms
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {fetching ? (
@@ -220,7 +219,10 @@ export default function RoomsPage() {
               <div className="text-center py-10 text-slate-500">
                 <p className="text-sm">No rooms are live right now.</p>
                 <p className="text-sm mt-1">
-                  Be the first to <span className="font-medium text-orange-600">start one!</span>
+                  Be the first to{" "}
+                  <span className="font-medium text-orange-600">
+                    start one!
+                  </span>
                 </p>
               </div>
             ) : (
@@ -285,7 +287,9 @@ export default function RoomsPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-lg">
             <h2 className="text-xl font-bold mb-4">
-              {modalMode === "create" ? "Select a Recipe to Cook" : "Search Rooms by Recipe"}
+              {modalMode === "create"
+                ? "Select a Recipe to Cook"
+                : "Search Rooms by Recipe"}
             </h2>
 
             <input
@@ -308,7 +312,9 @@ export default function RoomsPage() {
                       key={r.id}
                       onClick={() => setSelectedRecipe(r)}
                       className={`p-2 cursor-pointer rounded mb-1 ${
-                        selectedRecipe?.id === r.id ? "bg-orange-100" : "hover:bg-orange-50"
+                        selectedRecipe?.id === r.id
+                          ? "bg-orange-100"
+                          : "hover:bg-orange-50"
                       }`}
                     >
                       {r.title}
@@ -317,6 +323,35 @@ export default function RoomsPage() {
                 </ul>
               )}
             </div>
+
+            {searchResults.length > 0 && (
+              <div className="pt-4 border-t flex items-center justify-between mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleModalPageChange('prev')}
+                  disabled={modalPage === 0 || searching}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Prev
+                </Button>
+                
+                <span className="text-xs text-muted-foreground">
+                  Page {modalPage + 1} of {modalTotalPages || 1}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleModalPageChange('next')}
+                  disabled={(modalPage >= modalTotalPages - 1) || searching}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}  
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setShowModal(false)}>
                 Cancel

@@ -23,7 +23,6 @@ import {
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { RecipeSearchParams } from "@/types";
 import { deleteMealPlanAPI, exportMealPlanToGoogleAPI, generateMealPlanAPI, getMealPlanAPI, updateMealEntryAPI } from "@/lib/api/mealPlans";
 import { searchRecipesAPI } from "@/lib/api/recipes";
 import { generateShoppingListAPI } from "@/lib/api/shoppingLists";

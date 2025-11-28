@@ -6,6 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useRequireAuth } from "@/lib/hooks/useAuth";
+import { deleteRoomAPI, getRoomMessagesAPI, joinRoomAPI, leaveRoomAPI, pollRoomAPI, sendRoomMessageAPI, sendSignalAPI } from "@/lib/api/room";
+
+// Helper type for polling errors
+interface PollError {
+  status: number;
+  message: string;
+}
+
+function isPollError(error: unknown): error is PollError {
+  return (
+    typeof error === 'object' && 
+    error !== null && 
+    'status' in error && 
+    typeof (error as PollError).status === 'number'
+  );
+}
 
 type SignalMessage =
   | {
@@ -118,7 +134,10 @@ const RemoteVideoGrid = memo(function RemoteVideoGrid(props: {
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
-  const { roomId } = params;
+
+  const roomIdParam = params?.roomId;
+  const roomIdStr = Array.isArray(roomIdParam) ? roomIdParam[0] : roomIdParam;
+
   const [peerId, setPeerId] = useState<string | null>(null);
   const [remoteIds, setRemoteIds] = useState<string[]>([]);
   const [chatHistory, setChatHistory] = useState<
@@ -148,42 +167,36 @@ export default function RoomPage() {
   const joined = useRef(false);
   // Join the room
   useEffect(() => {
-    if (joined.current) return; // Prevent duplicate run
+    if (joined.current || !roomIdStr) return; // Prevent duplicate run
     joined.current = true;
     (async () => {
-      const res = await fetch(`/api/rooms/${roomId}/join`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (res.ok) {
+      try {
+        const data = await joinRoomAPI(roomIdStr);
+        
         recipeNameRef.current = data.recipeName;
         ownerNameRef.current = data.ownerName;
         peerIdRef.current = data.newPeer.id;
         setPeerId(data.newPeer.id);
         setIsOwner(data.isOwner);
+        
         await fetchMessages();
         await initMedia();
-        sendSignal({ type: "peer-joined", from: data.newPeer.id });
+        
+        await sendSignalAPI(roomIdStr, { type: "peer-joined", from: data.newPeer.id });
 
         for (const other of data.otherPeers) {
           if (other.id !== data.newPeer.id) {
-            console.log(
-              new Date().getMilliseconds() +
-                ": Create peer connection from " +
-                data.newPeer.id +
-                " to " +
-                other.id
-            );
+            console.log("Creating peer connection to " + other.id);
             createPeerConnection(other.id, data.newPeer.username, other.username, true);
           }
         }
-      } else {
-        alert(await res.text());
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to join room";
+        alert(msg);
       }
     })();
-  }, [roomId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomIdStr]);
 
   async function initMedia() {
     try {
@@ -201,11 +214,13 @@ export default function RoomPage() {
   }
 
   async function fetchMessages() {
-    const res = await fetch(`/api/rooms/${roomId}/messages`, {
-      credentials: "include",
-    });
-    const data = await res.json();
-    setChatHistory(data);
+    if (!roomIdStr) return;
+    try {
+      const data = await getRoomMessagesAPI(roomIdStr);
+      setChatHistory(data);
+    } catch (e) { 
+      console.error(e); 
+    }
   }
 
   // Long-poll
@@ -213,28 +228,21 @@ export default function RoomPage() {
     if (!peerId) return;
     let stopped = false;
     async function poll() {
-      if (stopped) return;
+      if (stopped || !roomIdStr) return;
       pollingAbort.current = new AbortController();
       try {
-        const res = await fetch(`/api/rooms/${roomId}/poll/`, {
-          signal: pollingAbort.current.signal,
-          credentials: "include",
-        });
-
-        if (!res.ok) {
-          // If room/peer is gone, treat as deleted and bail
-          console.warn("poll error status", res.status);
-          if (res.status === 403 || res.status === 404) {
-            alert("This room is no longer available.");
-            cleanupAndLeave();
-            router.push("/room");
-            return;
-          }
-        }
-
-        const msg = await res.json();
+        const msg = await pollRoomAPI(roomIdStr, pollingAbort.current.signal);
         handleSignal(msg);
-      } catch {
+      } catch (error: unknown) {
+        if (isPollError(error)) {
+            if (error.status === 403 || error.status === 404) {
+                alert("This room is no longer available.");
+                cleanupAndLeave();
+                router.push("/room");
+                return;
+            }
+        }
+        
         if (!stopped) await new Promise((r) => setTimeout(r, 1000));
       } finally {
         if (!stopped) poll();
@@ -245,7 +253,8 @@ export default function RoomPage() {
       stopped = true;
       pollingAbort.current?.abort();
     };
-  }, [peerId, roomId, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peerId, roomIdStr, router]);
 
   // Handle backend messages
   function handleSignal(msg: SignalMessage) {
@@ -312,6 +321,7 @@ export default function RoomPage() {
   }
 
   async function createPeerConnection(remoteId: string, new_username: string, other_username: string, initiator: boolean) {
+    if (!roomIdStr) return;
     if (peerConnections.current.has(remoteId)) return;
     const localStream = localStreamRef.current;
     const pc = new RTCPeerConnection({
@@ -341,7 +351,7 @@ export default function RoomPage() {
     };
     pc.onicecandidate = (e) => {
       if (!e.candidate) return;
-      sendSignal({
+      sendSignalAPI(roomIdStr, {
         type: "ice",
         from: ensurePeerId(peerIdRef.current),
         to: remoteId,
@@ -363,7 +373,7 @@ export default function RoomPage() {
     if (initiator) {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      sendSignal({
+      sendSignalAPI(roomIdStr, {
         type: "offer",
         from: ensurePeerId(peerIdRef.current),
         username: new_username,
@@ -374,6 +384,7 @@ export default function RoomPage() {
   }
 
   async function handleOffer(msg: Extract<SignalMessage, { type: "offer" }>) {
+    if(!roomIdStr) return;
     let pc = peerConnections.current.get(msg.from);
     if (!pc) {
       const newPc = new RTCPeerConnection({
@@ -407,7 +418,7 @@ export default function RoomPage() {
 
       newPc.onicecandidate = (e) => {
         if (!e.candidate) return;
-        sendSignal({
+        sendSignalAPI(roomIdStr, {
           type: "ice",
           from: ensurePeerId(peerIdRef.current),
           to: msg.from,
@@ -445,7 +456,7 @@ export default function RoomPage() {
 
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    sendSignal({
+    sendSignalAPI(roomIdStr, {
       type: "answer",
       from: ensurePeerId(peerIdRef.current),
       to: msg.from,
@@ -529,27 +540,17 @@ export default function RoomPage() {
     setRemoteIds((p) => p.filter((r) => r !== id));
   }
 
-  async function sendSignal(payload: SignalMessage) {
-    await fetch(`/api/rooms/${roomId}/signal`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "include",
-    });
-  }
-
   async function sendChat() {
-    if (!chatInput.trim() || !peerId || isSendingChat) return;
+    if (!chatInput.trim() || !peerId || isSendingChat || !roomIdStr) return;
     setIsSendingChat(true);
 
     await new Promise((r) => setTimeout(r, 150));
 
-    await fetch(`/api/rooms/${roomId}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ from: peerId, content: chatInput }),
-      credentials: "include",
-    });
+    try {
+      await sendRoomMessageAPI(roomIdStr, { from: peerId, content: chatInput });
+    } catch (e) { 
+      console.error(e); 
+    }
 
     setChatInput("");
     setIsSendingChat(false);
@@ -568,28 +569,23 @@ export default function RoomPage() {
   }
 
   async function handleLeaveRoom() {
-    if (!peerId) return;
-    await fetch(`/api/rooms/${roomId}/leave/${peerId}`, {
-      method: "POST",
-      credentials: "include",
-    });
+    if (!peerId || !roomIdStr) return;
+    await leaveRoomAPI(roomIdStr, peerId);
     cleanupAndLeave();
     router.push("/room");
   }
 
   async function handleDeleteRoom() {
-    if (!confirm("Are you sure you want to delete this room?")) return;
-    await fetch(`/api/rooms/${roomId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+    if (!roomIdStr || !confirm("Are you sure you want to delete this room?")) return;
+    await deleteRoomAPI(roomIdStr);
     cleanupAndLeave();
+    router.push("/room");
     router.push("/room");
   }
 
   useEffect(() => {
     const leave = () => {
-      if (peerId) navigator.sendBeacon(`/api/rooms/${roomId}/leave/${peerId}`);
+      if (peerId) navigator.sendBeacon(`/api/rooms/${roomIdStr}/leave/${peerId}`);
     };
     window.addEventListener("beforeunload", leave);
     window.addEventListener("pagehide", leave);
@@ -597,7 +593,7 @@ export default function RoomPage() {
       window.removeEventListener("beforeunload", leave);
       window.removeEventListener("pagehide", leave);
     };
-  }, [peerId, roomId]);
+  }, [peerId, roomIdStr]);
 
   return (
     <>
