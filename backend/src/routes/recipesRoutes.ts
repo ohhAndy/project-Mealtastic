@@ -14,6 +14,6 @@ router.delete('/:id/save', isAuthenticated, checkId, recipeCtrl.deleteSavedRecip
 router.put('/:id/reviews', isAuthenticated, checkId, checkRating, sanitizeComment, recipeCtrl.upsertReview);
 router.get('/:id/reviews', isAuthenticated, checkId, checkPage, checkLimit, recipeCtrl.getReviews);
 router.delete('/:id/reviews/:reviewId', isAuthenticated, checkId, recipeCtrl.deleteReview);
-router.get('/:id/reviews/count', isAuthenticated, recipeCtrl.getReviewCount);
-router.get('/:id/reviews/user', isAuthenticated, recipeCtrl.getUserReview);
+router.get('/:id/reviews/count', isAuthenticated, checkId, recipeCtrl.getReviewCount);
+router.get('/:id/reviews/user', isAuthenticated, checkId, recipeCtrl.getUserReview);
 export default router;
