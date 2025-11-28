@@ -11,8 +11,6 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT,
   google_id TEXT UNIQUE,
-  google_access_token TEXT,
-  google_refresh_token TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

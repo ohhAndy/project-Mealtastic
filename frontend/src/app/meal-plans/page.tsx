@@ -23,7 +23,7 @@ import {
 import { useRequireAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { deleteMealPlanAPI, exportMealPlanToGoogleAPI, generateMealPlanAPI, getMealPlanAPI, updateMealEntryAPI } from "@/lib/api/mealPlans";
+import { deleteMealPlanAPI, exportMealPlanICS, generateMealPlanAPI, getMealPlanAPI, updateMealEntryAPI } from "@/lib/api/mealPlans";
 import { searchRecipesAPI } from "@/lib/api/recipes";
 import { generateShoppingListAPI } from "@/lib/api/shoppingLists";
 
@@ -219,13 +219,13 @@ export default function MealPlannerPage() {
     searchRecipes(newPage);
   };
 
-  async function exportToGoogleCalendar(): Promise<void> {
+  async function exportToICS(): Promise<void> {
     if (!mealPlan) return;
     try {
       setLoading(true);
-      await exportMealPlanToGoogleAPI(mealPlan.week_start);
+      await exportMealPlanICS(mealPlan.week_start);
     } catch (err) {
-      console.error("Google Calendar Export error. Make sure to have logged in using Google:", err);
+      console.error("ICS Export error:", err);
     } finally {
       setLoading(false);
     }
@@ -381,13 +381,13 @@ export default function MealPlannerPage() {
                 </Button>
                 <>
                 <Button
-                  onClick={exportToGoogleCalendar}
+                  onClick={exportToICS}
                   disabled={loading}
                   variant="outline"
                   className="flex items-center gap-2"
                 >
                   <Calendar className="w-4 h-4" />
-                  Export to Google Calendar
+                  Export to ICS
                 </Button>
               </>
               </>
