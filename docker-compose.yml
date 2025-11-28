@@ -106,4 +106,8 @@ networks:
     driver: bridge
 
 volumes:
+  certs:
+  vhost-d:
+  html:
+  acme:
   pgdata:
