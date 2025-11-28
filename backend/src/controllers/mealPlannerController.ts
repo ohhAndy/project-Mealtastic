@@ -17,9 +17,9 @@ export function getWeekStart(): string {
 }
 
 const MEAL_TIMES: Record<string, string> = {
-  breakfast: "13:00",
-  lunch: "17:00",
-  dinner: "23:00",
+  breakfast: "08:00",
+  lunch: "12:00",
+  dinner: "18:00",
 };
 
 const WEBSITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL!;
@@ -170,27 +170,18 @@ export async function exportMealPlanICS(req: Request, res: Response) {
       if (!mealTime) continue;
 
       const date = entry.date.toISOString().split("T")[0];
-      const dtStart = `${date}T${mealTime.replace(":", "")}00Z`.replace(/[-:]/g, "");
+      const dtStart = `${date}T${mealTime.replace(":", "")}00`.replace(/[-:]/g, "");
 
       const [h, m] = mealTime.split(":");
       const endH = Number(h) + 1;
-
-      let dtEnd = "";
-      if (endH === 24) {
-        const nextDay = new Date(entry.date);
-        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-        const nextDate = nextDay.toISOString().split("T")[0];
-        dtEnd = `${nextDate}T000000Z`.replace(/[-:]/g, "");
-      } else {
-        const endHour = String(endH).padStart(2, "0");
-        dtEnd = `${date}T${endHour}${m}00Z`.replace(/[-:]/g, "");
-      }
+      const endHour = String(endH).padStart(2, "0");
+      const dtEnd = `${date}T${endHour}${m}00`.replace(/[-:]/g, "");
 
       const uid = `${entry.id}@mealplanner`;
 
       ics += "BEGIN:VEVENT\n";
       ics += `UID:${uid}\n`;
-      ics += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z/, "Z")}\n`;
+      ics += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z/, "")}\n`;
       ics += `DTSTART:${dtStart}\n`;
       ics += `DTEND:${dtEnd}\n`;
       ics += `SUMMARY:${escapeICS(entry.title)}\n`;
