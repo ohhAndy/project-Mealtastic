@@ -1,6 +1,9 @@
 // initial code for page and [plan_id] page based on chagpt responses: https://chatgpt.com/s/t_69293c45b8bc8191a43fe0830a738c61 and https://chatgpt.com/s/t_69293c8dc2c88191bc91c2601d3aad5d
 // pagination addition: https://chatgpt.com/s/t_69293d4f3b608191880dcda7ea9377a2 prompt: I added pagination to the getshoppinglists so add pagination to the page the there is a page and limit query now for the endpoint make it 10 shopping lists per page
 
+//Used chatGPT to abstract API calls to seperate files. 
+//Prompts used: "abstract these API calls to seperate files and methods"
+
 "use client";
 
 import { useState, useEffect } from "react";

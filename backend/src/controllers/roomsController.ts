@@ -8,6 +8,9 @@ import * as roomsQuery from "../queries/roomsQueries";
 // 'separate it into routes, controllers and app files' a lot of hallucination in these prompts so had to make a lot of compromises
 // later on with the room chats: https://chatgpt.com/s/t_69293765d4388191a8e5ddaba7d30a34
 
+
+//later refactored to not use express-long-poll, since express long poll wasnt properly polling.
+
 type SignalMessage =
   | {
     type: "offer";

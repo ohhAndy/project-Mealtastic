@@ -1,3 +1,6 @@
+//Used chatGPT to abstract API calls to seperate files. 
+//Prompts used: "abstract these API calls to seperate files and methods"
+
 "use client";
 
 import { useState, useEffect } from "react";

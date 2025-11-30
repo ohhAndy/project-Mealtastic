@@ -1,3 +1,7 @@
+//used google gemini to generate this page
+//Prompts used: [pasted api response from spoonacular recipe search] this is the structure of a recipe, 
+//              create me a page that allows users to create their own recipes, using shadcn and tailwind.        
+
 "use client";
 
 import { useState } from "react";
