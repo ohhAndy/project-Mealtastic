@@ -175,6 +175,15 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- =========================
+--  SEARCH KEYS
+-- =========================
+CREATE TABLE IF NOT EXISTS cached_search (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  search_key TEXT NOT NULL UNIQUE,
+  search_results JSONB
+);
+
+-- =========================
 --  INDEXES
 -- =========================
 CREATE INDEX IF NOT EXISTS idx_saved_recipes_user ON saved_recipes(user_id);

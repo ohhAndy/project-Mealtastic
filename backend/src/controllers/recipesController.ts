@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import pool from "../db";
 import dotenv from 'dotenv';
-import { getRecipeKey, getSearchKey, cacheSet, cacheGet } from "../config/memcached";
+import { getRecipeKey, getSearchKey, cacheSet, cacheGet, cacheSetSearch, invalidateSearchKeys } from "../config/memcached";
 import * as recipesQuery from "../queries/recipesQueries";
 import * as preferencesQuery from "../queries/preferencesQueries";
 
@@ -43,7 +43,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
       const totalResults = parseInt(result.rows[0].total_count);
       const responsePayload = { results: result.rows, totalResults };
       
-      cacheSet(cache_key, responsePayload, 0);
+      cacheSetSearch(cache_key, responsePayload);
       return res.json(responsePayload);
     }
 
@@ -87,7 +87,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
 
     const responsePayload = { results: recipe_list, totalResults };
 
-    cacheSet(cache_key, responsePayload, 0); // forever storing
+    cacheSetSearch(cache_key, responsePayload); // forever storing
     await Promise.all(
       recipe_list.map(async (recipe: any) => {
         cacheSet(getRecipeKey(recipe.id?.toString()), recipe, 0);
@@ -111,10 +111,8 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     return res.json(responsePayload);
   }
   catch(err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error searching recipes: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
@@ -184,8 +182,10 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
   const extendedIngredients = req.body.extendedIngredients;
   const analyzedInstructions = req.body.analyzedInstructions;
 
+  const client = await pool.connect();
   try {
-    let result = await pool.query(
+    await client.query("BEGIN")
+    let result = await client.query(
       recipesQuery.insertUserRecipe,
       [
         title,
@@ -206,29 +206,30 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
       analyzedInstructions: analyzedInstructions,
     });
 
-    result = await pool.query(recipesQuery.updateCachedData, [cached_data, id]);
+    result = await client.query(recipesQuery.updateCachedData, [cached_data, id]);
+    await client.query("COMMIT");
+    invalidateSearchKeys();
     cacheSet(getRecipeKey(id), result.rows[0], 0);
     return res.json(result.rows[0]);
   } catch (err) {
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    await client.query("ROLLBACK");
+    console.log("Error creating recipes: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
+  } finally {
+    client.release();
   }
   
 }
 
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
+  const recipe_id = req.params.id;
   try {
-    const recipe_id = req.params.id;
     await pool.query(recipesQuery.insertSavedRecipe, [req.session.userId, recipe_id]);
     res.sendStatus(200);
   } catch (err){
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error saving recipes:", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
@@ -246,24 +247,20 @@ export async function getSavedRecipes(req: Request, res: Response, next: NextFun
     return res.json(responsePayload);
     // no need to check spoontacular because all saved recipes will remain cached
   } catch (err) {
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error getting saved recipes: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function deleteSavedRecipe(req: Request, res: Response, next: NextFunction) {
+  const recipe_id = req.params.id;
   try {
-    const recipe_id = req.params.id;
     await pool.query(recipesQuery.deleteSavedRecipe, [recipe_id, req.session.userId]);
     res.sendStatus(200);
   } catch(err) {
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error deleting saved recipe: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
@@ -281,10 +278,8 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
     const reviews = result.rows;
     return res.json(reviews);
   } catch (err) {
-    if (err instanceof Error){
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error getting reviews: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
@@ -292,7 +287,6 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
 export async function deleteReview(req: Request, res: Response) {
   const reviewId = req.params.reviewId;
   const userId = req.session.userId;
-  
   try {
     // First check if the review exists and belongs to the user
     const checkResult = await pool.query(recipesQuery.checkReviewUser, [reviewId, userId]);
@@ -313,8 +307,9 @@ export async function deleteReview(req: Request, res: Response) {
     
     res.sendStatus(200);
   } catch (err) {
-    console.log(err);
-    return res.status(500).end(err instanceof Error ? err.message : err);
+    console.log("Error deleting review: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
   }
 }
 
@@ -324,15 +319,15 @@ export async function getReviewCount(req: Request, res: Response) {
     const result = await pool.query(recipesQuery.countReviews, [recipe_id]);
     return res.json({ count: result.rows[0].count });
   } catch (err) {
-    console.log(err);
-    return res.status(500).end(err instanceof Error ? err.message : err);
+    console.log("Error getting review count: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
   }
 }
 
 export async function getUserReview(req: Request, res: Response) {
   const recipe_id = req.params.id;
   const user_id = req.session.userId;
-  
   try {
     const result = await pool.query(recipesQuery.getUserReview, [recipe_id, user_id]);
     
@@ -342,8 +337,9 @@ export async function getUserReview(req: Request, res: Response) {
       return res.json(null);
     }
   } catch (err) {
-    console.log(err);
-    return res.status(500).end(err instanceof Error ? err.message : err);
+    console.log("Error getting user review: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
   }
 }
 
@@ -352,7 +348,6 @@ export async function upsertReview(req: Request, res: Response, next: NextFuncti
   const comment = req.body.comment as string;
   const recipe_id = req.params.id;
   const user_id = req.session.userId;
-  
   try {
     // Insert or update if already exists
     await pool.query(
@@ -368,10 +363,8 @@ export async function upsertReview(req: Request, res: Response, next: NextFuncti
     
     res.sendStatus(200);
   } catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error upserting review: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }

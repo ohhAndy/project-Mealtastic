@@ -53,10 +53,9 @@ const normalizeMetricUnit = (qty: number, unit: string) => {
 };
 
 export async function generateShoppingList(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-
     let { plan_id } = req.query;
     if (!plan_id) {
       const week_start = getWeekStart();
@@ -137,37 +136,34 @@ export async function generateShoppingList(req: Request, res: Response, next: Ne
 
     res.status(201).json({ list_id: listId, items: allIngredients });
   } catch (err) {
-    console.error("Error generating shopping list:", err);
+    console.error("Error generating shopping list: ", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function getShoppingList(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
+  const { plan_id } = req.params;
+  if (!plan_id) return res.status(400).end("Missing plan_id in query");
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-
-    const { plan_id } = req.params;
-    if (!plan_id) return res.status(400).end("Missing plan_id in query");
-
     const result = await pool.query(shoppingQuery.getShoppingItems, [userId, plan_id]);
 
     res.json({ items: result.rows });
   } catch (err) {
-    console.error("Error fetching shopping list:", err);
+    console.error("Error fetching shopping list: ", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function getShoppingLists(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
+  const page = req.query.page ? parseInt(req.query.page as string) : 0;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-    const page = req.query.page ? parseInt(req.query.page as string) : 0;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
-
     const countResult = await pool.query(shoppingQuery.countShoppingLists, [userId]);
 
     const totalItems = parseInt(countResult.rows[0].total, 10);
@@ -177,18 +173,17 @@ export async function getShoppingLists(req: Request, res: Response, next: NextFu
 
     res.json({ lists: result.rows, totalItems: totalItems, totalPages: totalPages });
   } catch (err) {
-    console.error("Error fetching user shopping lists:", err);
+    console.error("Error fetching user shopping lists: ", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function updateShoppingItem(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  const itemId = req.params.id;
+  const { checked, quantity } = req.body;
   try {
-    const userId = req.session.userId;
-    const itemId = req.params.id;
-    const { checked, quantity } = req.body;
-
     if (!itemId) return res.status(400).end("Missing item ID");
 
     const checkShoppingItemUser = await pool.query(shoppingQuery.checkShoppingItemUser, [itemId, userId]);
@@ -228,11 +223,10 @@ export async function updateShoppingItem(req: Request, res: Response, next: Next
 }
 
 export async function deleteShoppingList(req: Request, res: Response, next: NextFunction) {
+  const listId = req.params.id;
+  const userId = req.session.userId;
+  if (!listId || !userId) return res.status(400).end("Invalid request");
   try {
-    const listId = req.params.id;
-    const userId = req.session.userId;
-    if (!listId || !userId) return res.status(400).end("Invalid request");
-
     const checkUserResult = await pool.query(shoppingQuery.checkShoppingListUser, [listId, userId]);
     if (checkUserResult.rows.length == 0) return res.status(401).end("Not user's shopping list. Unauthorized.");
     await pool.query(shoppingQuery.deleteShoppingList, [listId]);
@@ -246,11 +240,10 @@ export async function deleteShoppingList(req: Request, res: Response, next: Next
 }
 
 export async function deleteShoppingItem(req: Request, res: Response, next: NextFunction) {
+  const itemId = req.params.id;
+  const userId = req.session.userId;
+  if (!itemId || !userId) return res.status(400).end("Invalid request");
   try {
-    const itemId = req.params.id;
-    const userId = req.session.userId;
-    if (!itemId || !userId) return res.status(400).end("Invalid request");
-
     const checkShoppingItemUser = await pool.query(shoppingQuery.checkShoppingItemUser, [itemId, userId]);
     if (checkShoppingItemUser.rows.length === 0)
       return res.status(401).end("Not user's shopping list item. Unauthorized.");

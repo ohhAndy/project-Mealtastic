@@ -60,10 +60,9 @@ async function getPeerIdForUser(roomId: string, userId: string) {
 }
 
 export async function createRoom(req: Request, res: Response, next: NextFunction) {
+  const recipe_id = req.body.recipe_id;
+  const recipe_name = req.body.recipe_name;
   try {
-    const recipe_id = req.body.recipe_id;
-    const recipe_name = req.body.recipe_name;
-
     const userRoomsResult = await pool.query(roomsQuery.getUserRooms, [req.session.userId]);
     if (userRoomsResult.rows.length > 0)
       return res.status(403).end("Already owner of another room. Delete previous room before opening another.;");
@@ -74,19 +73,17 @@ export async function createRoom(req: Request, res: Response, next: NextFunction
     return res.json(insertRoomResult.rows[0]);
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error creating room: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function getRooms(req: Request, res: Response, next: NextFunction) {
+  const page = req.query.page ? parseInt(req.query.page as string) : 0;
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
+  const recipe_id = req.query.recipe_id ? req.query.recipe_id as string : "";
   try {
-    const page = req.query.page ? parseInt(req.query.page as string) : 0;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
-    const recipe_id = req.query.recipe_id ? req.query.recipe_query as string : "";
     let query_string = roomsQuery.getRooms;
     let params: any[] = [limit, page * limit]
 
@@ -103,18 +100,15 @@ export async function getRooms(req: Request, res: Response, next: NextFunction) 
     return res.json({ rooms: roomsResult.rows, totalItems: totalItems, totalPages: totalPages });
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error getting rooms: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function joinRoom(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
   try {
-    const roomId = req.params.roomId;
-
     const roomResult = await pool.query(roomsQuery.getRoom, [roomId]);
     if (roomResult.rows.length < 1) return res.status(404).end("Room not found");
 
@@ -142,22 +136,18 @@ export async function joinRoom(req: Request, res: Response, next: NextFunction) 
     });
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error joining room: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 // Long-poll for this specific peer
 export async function pollRoom(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
+  const userId = req.session.userId as string | undefined;
+  if (!userId) return res.status(401).end("Not logged in");
   try {
-    const roomId = req.params.roomId;
-    const userId = req.session.userId as string | undefined;
-
-    if (!userId) return res.status(401).end("Not logged in");
-
     const peerId = await getPeerIdForUser(roomId, userId);
     if (!peerId) return res.status(403).end("Not in this room");
 
@@ -191,25 +181,22 @@ export async function pollRoom(req: Request, res: Response, next: NextFunction) 
       }
     }, pollIntervalMs);
   } catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
-    return res.status(500).end(String(err));
+    console.log("Error polling room: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
   }
 }
 
 export async function signalRoom(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
+  const { from, username, to, type, data } = req.body as {
+    from: string;
+    to?: string;
+    username?: string;
+    type: SignalMessage["type"];
+    data?: any;
+  };
   try {
-    const roomId = req.params.roomId;
-    const { from, username, to, type, data } = req.body as {
-      from: string;
-      to?: string;
-      username?: string;
-      type: SignalMessage["type"];
-      data?: any;
-    };
-
     if (type === "answer" || type === "ice") {
       if (!to) return res.status(400).end("Missing 'to' for signaling message");
 
@@ -241,19 +228,16 @@ export async function signalRoom(req: Request, res: Response, next: NextFunction
     return res.status(400).end("Unknown signal type");
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error signaling room: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function leaveRoom(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
+  const peerId = req.params.peerId;
   try {
-    const roomId = req.params.roomId;
-    const peerId = req.params.peerId;
-
     await pool.query(roomsQuery.deletePeer, [peerId]);
 
     // Notify remaining peers
@@ -267,18 +251,15 @@ export async function leaveRoom(req: Request, res: Response, next: NextFunction)
     return res.json({ left: true });
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error removing peer: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function deleteRoom(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
   try {
-    const roomId = req.params.roomId;
-
     const { rows } = await pool.query(roomsQuery.getRoom, [roomId]);
     if (rows.length === 0) return res.status(404).end("Room not found");
     if (rows[0].owner_id !== req.session.userId)
@@ -297,10 +278,8 @@ export async function deleteRoom(req: Request, res: Response, next: NextFunction
     return res.json({ deleted: true });
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error deleting room: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
@@ -320,16 +299,15 @@ export async function cleanupInactivePeers(threshold: Number) {
       }
     }
   } catch (err) {
-    console.log(err);
+    console.log("Error removing inactive peer: ", err);
   }
 }
 
 export async function sendMessage(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
+  const from = req.body.from as string;
+  const content = req.body.content as string;
   try {
-    const roomId = req.params.roomId;
-    const from = req.body.from as string;
-    const content = req.body.content as string;
-
     await pool.query(roomsQuery.insertMessages, [roomId, from, content]);
 
     const peers = await getPeers(roomId);
@@ -347,26 +325,21 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     return res.status(200).end();
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error sending message: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }
 
 export async function getMessages(req: Request, res: Response, next: NextFunction) {
+  const roomId = req.params.roomId;
   try {
-    const roomId = req.params.roomId;
     const result = await pool.query(roomsQuery.getMessages, [roomId]);
-
     res.json(result.rows);
   }
   catch (err) {
-    if (err instanceof Error) {
-      console.log(err);
-      return res.status(500).end(err.message);
-    }
+    console.log("Error getting messages: ", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
 }

@@ -15,6 +15,7 @@ export async function getUserPreferences(req: Request, res: Response, next: Next
       return res.json(null);
     }
   } catch (err) {
+    console.log("Error getting user preferences:", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }
@@ -29,6 +30,7 @@ export async function updateUserPreferences(req: Request, res: Response, next: N
 
     res.sendStatus(200);
   } catch (err) {
+    console.log("Error inserting user preferences:", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
   }

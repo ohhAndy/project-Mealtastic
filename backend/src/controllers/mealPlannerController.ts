@@ -25,19 +25,10 @@ const MEAL_TIMES: Record<string, string> = {
 const WEBSITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL!;
 
 export async function generateWeeklyMealPlan(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
+  let recipes: any[] = [];
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-
-    const weekStart = getWeekStart();
-
-    let planId = ""
-    const checkResult = await pool.query(mealPlanQuery.getMealPlanWithUserIDWeek, [userId, weekStart]);
-    if (checkResult.rows.length > 0) {
-      planId = checkResult.rows[0].id;
-      await pool.query(mealPlanQuery.deleteEntryWithPlanID, [planId]);
-    }
-
     // Fetch user preferences
     const prefResult = await pool.query(preferencesQuery.getUserPreferences, [userId]);
     const preferences = prefResult.rows[0];
@@ -60,12 +51,20 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
     }
 
     const recipeResult = await pool.query(recipeQuery, params);
-    const recipes = recipeResult.rows;
+    recipes = recipeResult.rows;
     if (recipes.length === 0) return res.status(400).json({ error: "No suitable saved recipes found." });
+  } catch (err) {
+    console.log("Error getting saved recipes for meal plan:", err);
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
+  }
 
-    // Create meal plan record
-    const planResult = await pool.query(mealPlanQuery.insertMealPlan, [userId, weekStart]);
-    if (planResult.rows.length > 0) planId = planResult.rows[0].id;
+  const weekStart = getWeekStart();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const planResult = await client.query(mealPlanQuery.upsertMealPlan, [userId, weekStart]);
+    const planId = planResult.rows[0].id;
 
     // Generate entries (7 days × 3 meals)
     const mealTypes = ["breakfast", "lunch", "dinner"];
@@ -83,27 +82,32 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
       }
     }
 
+    await client.query(mealPlanQuery.deleteEntryWithPlanID, [planId])
+
     // Insert entries
     const insertPromises = entries.map(e =>
-      pool.query(mealPlanQuery.insertMealPlanEntry, [e.plan_id, e.date, e.meal_type, e.recipe_id])
+      client.query(mealPlanQuery.insertMealPlanEntry, [e.plan_id, e.date, e.meal_type, e.recipe_id])
     );
     await Promise.all(insertPromises);
+    await client.query("COMMIT");
 
     // Return result
     res.json({ plan_id: planId, week_start: weekStart, entries });
   } catch (err) {
-    console.error("Error generating meal plan:", err);
+    await client.query("ROLLBACK");
+    console.log("Error generating meal plan:", err);
     if (err instanceof Error) return res.status(500).end(err.message);
     return res.status(500).end(err);
+  } finally {
+    client.release();
   }
 }
 
 export async function getMealPlan(req: Request, res: Response, next: NextFunction) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
+  const weekStart = req.query.week_start as string || getWeekStart();
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-
-    const weekStart = req.query.week_start as string || getWeekStart();
     const result = await pool.query(mealPlanQuery.getMealPlanEntriesWithUserIDWeek, [userId, weekStart]);
     if (result.rows.length === 0) return res.status(404).json({ message: "No meal plan found for this week." });
 
@@ -116,13 +120,11 @@ export async function getMealPlan(req: Request, res: Response, next: NextFunctio
 }
 
 export async function updateMealPlanEntry(req: Request, res: Response, next: NextFunction) {
+  const entryId = req.params.id;
+  const { recipe_id } = req.body;
+  if (!entryId) return res.status(400).end("Missing entry ID");
   try {
-    const entryId = req.params.id;
-    const { recipe_id } = req.body;
-    if (!entryId) return res.status(400).end("Missing entry ID");
-
     await pool.query(mealPlanQuery.updateMealPlanEntry, [recipe_id || null, entryId]);
-
     res.sendStatus(200);
   } catch (err) {
     console.error("Error updating meal entry:", err);
@@ -132,13 +134,11 @@ export async function updateMealPlanEntry(req: Request, res: Response, next: Nex
 }
 
 export async function deleteMealPlan(req: Request, res: Response, next: NextFunction) {
+  const planId = req.params.id;
+  const userId = req.session.userId;
+  if (!planId || !userId) return res.status(400).end("Invalid request");
   try {
-    const planId = req.params.id;
-    const userId = req.session.userId;
-    if (!planId || !userId) return res.status(400).end("Invalid request");
-
     await pool.query(mealPlanQuery.deleteMealPlan, [planId, userId]);
-
     res.sendStatus(200);
   } catch (err) {
     console.error("Error deleting meal plan:", err);
@@ -148,11 +148,10 @@ export async function deleteMealPlan(req: Request, res: Response, next: NextFunc
 }
 
 export async function exportMealPlanICS(req: Request, res: Response) {
+  const userId = req.session.userId;
+  if (!userId) return res.status(401).end("Unauthorized");
+  const weekStart = req.query.week_start as string || getWeekStart();
   try {
-    const userId = req.session.userId;
-    if (!userId) return res.status(401).end("Unauthorized");
-
-    const weekStart = req.query.week_start as string || getWeekStart();
     const result = await pool.query(mealPlanQuery.getMealPlanEntriesWithUserIDWeek, [userId, weekStart]);
 
     if (result.rows.length === 0) {
@@ -200,7 +199,8 @@ export async function exportMealPlanICS(req: Request, res: Response) {
     res.send(ics);
   } catch (err) {
     console.error("Error exporting ICS:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    if (err instanceof Error) return res.status(500).end(err.message);
+    return res.status(500).end(err);
   }
 }
 

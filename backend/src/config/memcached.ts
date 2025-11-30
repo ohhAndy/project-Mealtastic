@@ -13,6 +13,28 @@ export function getRecipeKey(id: string) {
   return `recipe:${id}`;
 }
 
+export async function invalidateSearchKeys() {
+  let searchResults: any[] = []
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    searchResults = (await client.query("SELECT * FROM cached_search FOR UPDATE")).rows;
+    await client.query("DELETE FROM cached_search");
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.log("Failed to delete cache_search from DB: ", err);
+  } finally {
+    client.release();
+    await Promise.all(searchResults.map(async (s: any) => {
+      memcached.del(s.search_key, (err)=> {
+        if (err) console.log("Memcached DEL error:", err);
+        console.log("Memcached DEL: ", s.search_key);
+      });
+    }));
+  }
+}
+
 export function cacheSet(key: string, value: any, ttlSeconds = 0) {
   memcached.set(key, JSON.stringify(value), ttlSeconds, (err) => {
     if (err) console.log("Memcached SET error:", err);
@@ -35,8 +57,30 @@ export function cacheGet<T>(key: string): Promise<T | null> {
 }
 
 export async function warmCache() {
-  const results = await pool.query("SELECT * FROM recipes;")
-  for (const r of results.rows) {
+  const recipeResults = await pool.query("SELECT * FROM recipes");
+  for (const r of recipeResults.rows) {
     cacheSet(getRecipeKey(r.id as string), r);
   }
+  const searchResults = await pool.query("SELECT * FROM cached_search");
+  for (const s of searchResults.rows) {
+    cacheSet(s.search_key, s.search_results);
+  }
+}
+
+export async function cacheSetSearch(key: string, value: any) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO cached_search(search_key, search_results) 
+                        VALUES ($1, $2)
+                        ON CONFLICT (search_key) DO UPDATE SET search_results = EXCLUDED.search_results`,
+                      [key, JSON.stringify(value)]);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.log("Failed to insert new cache_search into DB: ", err);
+  } finally {
+    client.release();
+  }
+  cacheSet(key, value, 0);
 }
