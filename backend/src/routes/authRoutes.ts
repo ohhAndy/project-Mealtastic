@@ -20,7 +20,9 @@ router.get(
   passport.authenticate("google", { failureRedirect: `/` }),
   (req, res) => {
     if (req.user && req.user.id) req.session.userId = req.user.id;
-    authCtrl.googleRedirect(req, res);
+    req.session.save(() => {
+      res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}/recipes`);
+    });
   }
 );
 export default router;

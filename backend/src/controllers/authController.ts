@@ -81,10 +81,6 @@ export async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export function googleRedirect(req: Request, res: Response) {
-  res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL!}/recipes`);
-}
-
 export async function profile(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Not authenticated" });
