@@ -63,7 +63,8 @@ export async function generateWeeklyMealPlan(req: Request, res: Response, next: 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const planResult = await client.query(mealPlanQuery.upsertMealPlan, [userId, weekStart]);
+    await client.query(mealPlanQuery.insertMealPlan, [userId, weekStart]);
+    const planResult = await client.query(mealPlanQuery.getMealPlanLock, [userId, weekStart]);
     const planId = planResult.rows[0].id;
 
     // Generate entries (7 days × 3 meals)

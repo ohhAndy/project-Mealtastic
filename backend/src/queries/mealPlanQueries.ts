@@ -3,22 +3,15 @@ export const getMealPlanWithUserIDWeek = `SELECT *
                                           WHERE user_id = $1
                                           AND week_start = $2`;
 
+export const getMealPlanLock = `SELECT *
+                                FROM meal_plans
+                                WHERE user_id = $1
+                                AND week_start = $2
+                                FOR UPDATE`;
+
 export const insertMealPlan = `INSERT INTO meal_plans (user_id, week_start, generated)
                                VALUES ($1, $2, TRUE)
-                               ON CONFLICT (user_id, week_start) DO UPDATE SET generated = meal_plans.generated
-                               RETURNING id;`;
-
-export const upsertMealPlan = `WITH upsert AS (
-                                INSERT INTO meal_plans (user_id, week_start, generated)
-                                VALUES ($1, $2, TRUE)
-                                ON CONFLICT (user_id, week_start) DO NOTHING
-                                RETURNING id
-                               )
-                               SELECT id FROM upsert
-                               UNION ALL
-                               SELECT id FROM meal_plans
-                               WHERE user_id = $1 AND week_start = $2
-                               FOR UPDATE`
+                               ON CONFLICT (user_id, week_start) DO NOTHING`;
 
 export const insertMealPlanEntry = `INSERT INTO meal_plan_entries (plan_id, date, meal_type, recipe_id)
                                     VALUES ($1, $2, $3, $4)`;
