@@ -19,33 +19,33 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
   const diet = req.query.diet ? (req.query.diet as string).toLowerCase() : null;
   const maxPrepTime = req.query.maxPrepTime ? parseInt(req.query.maxPrepTime as string) : 1000000000;
 
-  // const cache_key = getSearchKey({ query: main_query, cuisine, diet, maxPrepTime, page, limit });
-  // const cached = await cacheGet<any[]>(cache_key);
-  // if (cached) return res.json(cached);
+  const cache_key = getSearchKey({ query: main_query, cuisine, diet, maxPrepTime, page, limit });
+  const cached = await cacheGet<any[]>(cache_key);
+  if (cached) return res.json(cached);
 
   if (!main_query)
      return res.status(400).end("query is missing");
   try{
-  //   // still need to include this since searches won't be stored in database thus won't be part of the initial memcached warming up
-  //   let result = await pool.query(
-  //     recipesQuery.searchRecipes,
-  //     [
-  //       req.session.userId,
-  //       `%${main_query}%`,
-  //       diet,
-  //       cuisine,
-  //       maxPrepTime,
-  //       limit,
-  //       limit * page
-  //     ]
-  //   );
-  //   if (result.rows.length > 0) {
-  //     const totalResults = parseInt(result.rows[0].total_count);
-  //     const responsePayload = { results: result.rows, totalResults };
+    // still need to include this since searches won't be stored in database thus won't be part of the initial memcached warming up
+    let result = await pool.query(
+      recipesQuery.searchRecipes,
+      [
+        req.session.userId,
+        `%${main_query}%`,
+        diet,
+        cuisine,
+        maxPrepTime,
+        limit,
+        limit * page
+      ]
+    );
+    if (result.rows.length > 0) {
+      const totalResults = parseInt(result.rows[0].total_count);
+      const responsePayload = { results: result.rows, totalResults };
       
-  //     cacheSetSearch(cache_key, responsePayload);
-  //     return res.json(responsePayload);
-  //   }
+      cacheSetSearch(cache_key, responsePayload);
+      return res.json(responsePayload);
+    }
 
     // not enough results in db, try spoonacular again do this because cache will not be initially storing searches
     const spoonacular_url = new URL("https://api.spoonacular.com/recipes/complexSearch");
@@ -87,7 +87,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
 
     const responsePayload = { results: recipe_list, totalResults };
 
-    // cacheSetSearch(cache_key, responsePayload); // forever storing
+    cacheSetSearch(cache_key, responsePayload); // forever storing
     await Promise.all(
       recipe_list.map(async (recipe: any) => {
         cacheSet(getRecipeKey(recipe.id?.toString()), recipe, 0);
