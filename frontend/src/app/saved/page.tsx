@@ -1,3 +1,5 @@
+//basically replicated what was done in the recipe search pages, using a recipe grid and cards to display the recipes, but with different API calls, no AI was used
+
 "use client";
 
 import RecipeGrid from "@/components/recipes/RecipeGrid";

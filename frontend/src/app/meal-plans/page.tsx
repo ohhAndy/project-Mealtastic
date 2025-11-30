@@ -1,3 +1,8 @@
+//Used Claude code to generate a bulk of this frontend page, and chatGPT to abstract API calls to seperate files. 
+//Prompts used: "generate me a frontend page using shadcn and tailwind, using these API end points [insert the api endpoints from backend]"
+//              "dont use any types, since eslint complains"
+//              "abstract these API calls to seperate files and methods"
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -99,7 +104,7 @@ export default function MealPlannerPage() {
 
   function getWeekStart(date: Date): string {
     const d = new Date(date);
-    const day = d.getDay(); // 0=Sun, 1=Mon ...
+    const day = d.getDay(); 
     const diff = d.getDate() - ((day + 6) % 7);
     d.setDate(diff);
 
