@@ -3,7 +3,7 @@
 ## Links
 
 - **Deployed URL:** [mealtastic.me](https://mealtastic.me)
-- **Video URL:** [Link to your youtube video]
+- **Video URL:** [Youtube Video](https://youtu.be/oQpOkDBTdyM)
 
 ## Project Description
 
