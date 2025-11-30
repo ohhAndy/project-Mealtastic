@@ -47,7 +47,6 @@ export function cacheGet<T>(key: string): Promise<T | null> {
     memcached.get(key, (err, data) => {
       if (err || !data) return resolve(null);
       try {
-        console.log("Memcache GET: ", key);
         resolve(JSON.parse(data));
       } catch {
         resolve(null);
