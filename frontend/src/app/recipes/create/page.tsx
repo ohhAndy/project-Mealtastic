@@ -356,7 +356,7 @@ export default function CreateRecipePage() {
 
       const res = await createRecipeAPI(payload);
 
-      router.push(`recipes/${res.id}`)
+      router.push(`/${res.id}`);
     } catch (error) {
       console.error("Error:", error);
       alert("Failed to create recipe. Please try again.");
