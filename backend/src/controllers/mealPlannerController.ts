@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { getGoogleCalendarClient } from "../config/googleCalendar";
 import pool from "../db";
-import { calendar_v3 } from "googleapis";
 import * as mealPlanQuery from "../queries/mealPlanQueries";
 import * as preferencesQuery from "../queries/preferencesQueries";
 import * as recipesQuery from "../queries/recipesQueries";
@@ -18,22 +16,11 @@ export function getWeekStart(): string {
   return monday.toISOString().split("T")[0];
 }
 
-const MEAL_TIMES = {
-  breakfast: "13:00",
-  lunch: "17:00",
-  dinner: "23:00",
+const MEAL_TIMES: Record<string, string> = {
+  breakfast: "08:00",
+  lunch: "12:00",
+  dinner: "18:00",
 };
-
-type MealPlanEntry = {
-  title: string,
-  image_url: string,
-  source: string,
-  id: string,
-  plan_id: string,
-  date: Date,
-  meal_type: "breakfast" | "lunch" | "dinner",
-  recipe_id: string
-}
 
 const WEBSITE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL!;
 
@@ -160,7 +147,7 @@ export async function deleteMealPlan(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function exportMealPlanToGoogleCalendar(req: Request, res: Response) {
+export async function exportMealPlanICS(req: Request, res: Response) {
   try {
     const userId = req.session.userId;
     if (!userId) return res.status(401).end("Unauthorized");
@@ -168,89 +155,59 @@ export async function exportMealPlanToGoogleCalendar(req: Request, res: Response
     const weekStart = req.query.week_start as string || getWeekStart();
     const result = await pool.query(mealPlanQuery.getMealPlanEntriesWithUserIDWeek, [userId, weekStart]);
 
-    if (result.rows.length === 0)
-      return res.status(404).json({ message: "No meal plan found for this week." });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "No meal plan found" });
+    }
 
-    const userResult = await pool.query(
-      `SELECT google_access_token, google_refresh_token FROM users WHERE id=$1;`,
-      [userId]
+    let ics = "";
+    ics += "BEGIN:VCALENDAR\n";
+    ics += "VERSION:2.0\n";
+    ics += "CALSCALE:GREGORIAN\n";
+    ics += "PRODID:-//Meal Planner App//EN\n";
+
+    for (const entry of result.rows) {
+      const mealTime = MEAL_TIMES[entry.meal_type];
+      if (!mealTime) continue;
+
+      const date = entry.date.toISOString().split("T")[0];
+      const dtStart = `${date}T${mealTime.replace(":", "")}00`.replace(/[-:]/g, "");
+
+      const [h, m] = mealTime.split(":");
+      const endH = Number(h) + 1;
+      const endHour = String(endH).padStart(2, "0");
+      const dtEnd = `${date}T${endHour}${m}00`.replace(/[-:]/g, "");
+
+      const uid = `${entry.id}@mealplanner`;
+
+      ics += "BEGIN:VEVENT\n";
+      ics += `UID:${uid}\n`;
+      ics += `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z/, "")}\n`;
+      ics += `DTSTART:${dtStart}\n`;
+      ics += `DTEND:${dtEnd}\n`;
+      ics += `SUMMARY:${escapeICS(entry.title)}\n`;
+      ics += `DESCRIPTION:${escapeICS(`${WEBSITE_URL}/recipes/${entry.recipe_id}`)}\n`;
+      ics += "END:VEVENT\n";
+    }
+
+    ics += "END:VCALENDAR";
+
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="meal-plan.ics"`
     );
-    const user = userResult.rows[0];
-    if (!user?.google_refresh_token)
-      return res.status(400).json({ error: "User has not connected Google Calendar." });
 
-    const calendar = getGoogleCalendarClient({
-      access_token: user.google_access_token,
-      refresh_token: user.google_refresh_token,
-    });
-
-    const planId = result.rows[0].plan_id;
-
-    const startDate = new Date(`${weekStart}T00:00:00Z`); // start of week in UTC
-    const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days later
-
-    const existingEventsRes = await calendar.events.list({
-      calendarId: "primary",
-      privateExtendedProperty: [`mealPlanId=${planId}`],
-      timeMin: startDate.toISOString(),
-      timeMax: endDate.toISOString(),
-    });
-
-    const existingEventTimes = new Map<string, calendar_v3.Schema$Event>();
-
-    for (const ev of existingEventsRes.data.items || []) {
-      if (!ev.start?.dateTime) continue;
-      const startUTC = new Date(ev.start.dateTime).toISOString().replace('00.000Z', '00Z');
-      existingEventTimes.set(startUTC, ev);
-    }
-
-    for (const entry of result.rows as MealPlanEntry[]) {
-      const time = MEAL_TIMES[entry.meal_type];
-      if (!entry.date || !time) continue;
-
-      const dateStr = entry.date.toISOString().split("T")[0];
-      const startDateTime = `${dateStr}T${time}:00Z`;
-
-      const startDate = new Date(startDateTime);
-      if (isNaN(startDate.getTime())) continue;
-
-      const endDateTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
-
-      if (existingEventTimes.has(startDateTime)) {
-        const existingEvent = existingEventTimes.get(startDateTime);
-        if (existingEvent && existingEvent.summary !== entry.title) {
-          await calendar.events.update({
-            calendarId: "primary",
-            eventId: existingEvent.id!,
-            requestBody: {
-              summary: entry.title,
-              description: `${WEBSITE_URL}/recipes/${entry.recipe_id}`,
-              start: { dateTime: startDateTime },
-              end: { dateTime: endDateTime },
-              extendedProperties: { private: { mealPlanId: planId } },
-            },
-          });
-        }
-        continue;
-      }
-      await calendar.events.insert({
-        calendarId: "primary",
-        requestBody: {
-          summary: entry.title,
-          description: `${WEBSITE_URL}/recipes/${entry.recipe_id}` || "",
-          start: { dateTime: startDateTime },
-          end: { dateTime: endDateTime },
-          extendedProperties: { private: { mealPlanId: planId } },
-        },
-      });
-
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    res.sendStatus(200);
+    res.send(ics);
   } catch (err) {
-    console.error("Error exporting meal plan:", err);
-    if (err instanceof Error) return res.status(500).end(err.message);
-    return res.status(500).end(err);
+    console.error("Error exporting ICS:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
+}
+
+function escapeICS(str: string) {
+  return str
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\n/g, "\\n");
 }

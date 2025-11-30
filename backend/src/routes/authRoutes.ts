@@ -13,11 +13,7 @@ router.get("/profile", authCtrl.profile);
 // google authentication using chatgpt: https://chatgpt.com/s/t_6928e2c8e9b881919955bfd7023bdd17
 router.get(
   "/google",
-  passport.authenticate("google", {
-    scope: ["profile", "email", "https://www.googleapis.com/auth/calendar.events"],
-    accessType: "offline",
-    prompt: "consent"
-  })
+  passport.authenticate("google", { scope: ["profile", "email"] })
 );
 router.get(
   "/google/callback",

@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import pool from "../db";
 import dotenv from 'dotenv';
 import { getRecipeKey, getSearchKey, cacheSet, cacheGet } from "../config/memcached";
+import * as recipesQuery from "../queries/recipesQueries";
+import * as preferencesQuery from "../queries/preferencesQueries";
 
 dotenv.config();
 
@@ -25,29 +27,18 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
      return res.status(400).end("query is missing");
   try{
     // still need to include this since searches won't be stored in database thus won't be part of the initial memcached warming up
-    let sql_query = 
-    `
-    SELECT r.*, COUNT(*) OVER() as total_count
-    FROM recipes r
-    JOIN user_preferences p ON p.user_id = $1
-    WHERE (LOWER(r.title) LIKE LOWER($2) OR LOWER(r.cached_data->>'summary') LIKE LOWER($2))
-    AND ($3::TEXT IS NULL OR LOWER($3) = ANY(ARRAY(SELECT LOWER(unnest(r.diets)))))
-    AND ($4::TEXT IS NULL OR LOWER($4) = ANY(ARRAY(SELECT LOWER(unnest(r.cuisines)))))
-    AND r.prep_time < $5
-    AND NOT (ARRAY(SELECT jsonb_array_elements_text(r.cached_data->'ingredients')) && p.exclude_ingredients)
-    ORDER BY r.rating DESC
-    LIMIT $6 OFFSET $7;`;
-    let params: any[] = [
-      req.session.userId,
-      `%${main_query}%`,
-      diet,
-      cuisine,
-      maxPrepTime,
-      limit,
-      limit * page
-    ];
-
-    let result = await pool.query(sql_query, params);
+    let result = await pool.query(
+      recipesQuery.searchRecipes,
+      [
+        req.session.userId,
+        `%${main_query}%`,
+        diet,
+        cuisine,
+        maxPrepTime,
+        limit,
+        limit * page
+      ]
+    );
     if (result.rows.length > 0) {
       const totalResults = parseInt(result.rows[0].total_count);
       const responsePayload = { results: result.rows, totalResults };
@@ -69,7 +60,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
     spoonacular_url.searchParams.append("maxReadyTime", maxPrepTime.toString());
     spoonacular_url.searchParams.append("apiKey", process.env.API_KEY as string);
 
-    let preference_result = await pool.query('SELECT * FROM user_preferences WHERE user_id = $1 LIMIT 1;', [req.session.userId]);
+    let preference_result = await pool.query(preferencesQuery.getUserPreferences, [req.session.userId]);
     const user_preferences = preference_result.rows[0];
     spoonacular_url.searchParams.append("excludeIngredients", user_preferences.exclude_ingredients.join(","));
 
@@ -101,7 +92,7 @@ export async function searchRecipes(req: Request, res: Response, next: NextFunct
       recipe_list.map(async (recipe: any) => {
         cacheSet(getRecipeKey(recipe.id?.toString()), recipe, 0);
         pool.query(
-          "INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING;",
+          recipesQuery.insertRecipe,
           [
             recipe.id,
             recipe.title,
@@ -145,7 +136,8 @@ async function cacheRecipe(recipe_id: string, rating: number | undefined) {
       cached_data: recipe_data,
       rating: rating ?? 0,
     }
-  pool.query("INSERT INTO recipes (id, title, image_url, prep_time, cuisines, diets, source, cached_data, rating) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO NOTHING;",
+  pool.query(
+    recipesQuery.insertRecipe,
     [
       recipe.id,
       recipe.title,
@@ -154,8 +146,7 @@ async function cacheRecipe(recipe_id: string, rating: number | undefined) {
       recipe.cuisines,
       recipe.diets,
       recipe.source,
-      JSON.stringify(recipe_data),
-      recipe.rating
+      JSON.stringify(recipe_data)
     ]
   );
   cacheSet(getRecipeKey(recipe.id), recipe, 0);
@@ -194,7 +185,8 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
   const analyzedInstructions = req.body.analyzedInstructions;
 
   try {
-    let result = await pool.query("INSERT INTO recipes (title, image_url, prep_time, cuisines, diets) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING RETURNING id",
+    let result = await pool.query(
+      recipesQuery.insertUserRecipe,
       [
         title,
         image,
@@ -214,7 +206,7 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
       analyzedInstructions: analyzedInstructions,
     });
 
-    result = await pool.query("UPDATE recipes SET cached_data = $1 WHERE id = $2 RETURNING *;", [cached_data, id]);
+    result = await pool.query(recipesQuery.updateCachedData, [cached_data, id]);
     cacheSet(getRecipeKey(id), result.rows[0], 0);
     return res.json(result.rows[0]);
   } catch (err) {
@@ -230,7 +222,7 @@ export async function createRecipe(req: Request, res: Response, next: NextFuncti
 export async function saveRecipe(req: Request, res: Response, next: NextFunction) {
   try {
     const recipe_id = req.params.id;
-    await pool.query("INSERT INTO saved_recipes (user_id, recipe_id) VALUES ($1, $2::text);", [req.session.userId, recipe_id]);
+    await pool.query(recipesQuery.insertSavedRecipe, [req.session.userId, recipe_id]);
     res.sendStatus(200);
   } catch (err){
     if (err instanceof Error){
@@ -246,11 +238,7 @@ export async function getSavedRecipes(req: Request, res: Response, next: NextFun
   const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
   try {
     const result = await pool.query(
-      `SELECT r.*, COUNT(*) OVER() as total_count
-      FROM recipes r
-      JOIN saved_recipes s ON s.recipe_id = r.id AND s.user_id = $1
-      ORDER BY s.saved_at DESC
-      LIMIT $2 OFFSET $3;`,
+      recipesQuery.getSomeSavedRecipes,
       [req.session.userId, limit, limit*page]
     );
     const totalResults = parseInt(result.rows[0].total_count);
@@ -269,12 +257,7 @@ export async function getSavedRecipes(req: Request, res: Response, next: NextFun
 export async function deleteSavedRecipe(req: Request, res: Response, next: NextFunction) {
   try {
     const recipe_id = req.params.id;
-    await pool.query(
-      `DELETE 
-      FROM saved_recipes
-      WHERE recipe_id = $1::text AND user_id = $2;`,
-      [recipe_id, req.session.userId]
-    );
+    await pool.query(recipesQuery.deleteSavedRecipe, [recipe_id, req.session.userId]);
     res.sendStatus(200);
   } catch(err) {
     if (err instanceof Error){
@@ -292,11 +275,7 @@ export async function getReviews(req: Request, res: Response, next: NextFunction
   const recipe_id = req.params.id;
   try {
     const result = await pool.query(
-      `SELECT *
-      FROM reviews
-      WHERE recipe_id = $1::text
-      ORDER BY created_at DESC
-      LIMIT $2 OFFSET $3;`,
+      recipesQuery.getRecipeReviews,
       [recipe_id, limit, limit*page]
     );
     const reviews = result.rows;
@@ -316,10 +295,7 @@ export async function deleteReview(req: Request, res: Response) {
   
   try {
     // First check if the review exists and belongs to the user
-    const checkResult = await pool.query(
-      "SELECT recipe_id FROM reviews WHERE id = $1::uuid AND user_id = $2::uuid",
-      [reviewId, userId]
-    );
+    const checkResult = await pool.query(recipesQuery.checkReviewUser, [reviewId, userId]);
     
     if (checkResult.rows.length === 0) {
       return res.status(403).end("Unauthorized: You can only delete your own reviews");
@@ -328,16 +304,12 @@ export async function deleteReview(req: Request, res: Response) {
     const recipeId = checkResult.rows[0].recipe_id;
     
     // Delete the review
-    await pool.query(
-      "DELETE FROM reviews WHERE id = $1::uuid AND user_id = $2::uuid",
-      [reviewId, userId]
-    );
+    await pool.query(recipesQuery.deleteReview, [reviewId, userId]);
     
     // Update recipe rating
-    await pool.query(
-      "UPDATE recipes SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) WHERE id = $1::text",
-      [recipeId]
-    );
+    const recipe = await pool.query(recipesQuery.updateRatings, [recipeId]);
+    const cache_key = getRecipeKey(recipe.rows[0].id as string);
+    cacheSet(cache_key, recipe.rows[0]);
     
     res.sendStatus(200);
   } catch (err) {
@@ -349,10 +321,7 @@ export async function deleteReview(req: Request, res: Response) {
 export async function getReviewCount(req: Request, res: Response) {
   const recipe_id = req.params.id;
   try {
-    const result = await pool.query(
-      "SELECT COUNT(*)::int as count FROM reviews WHERE recipe_id = $1::text",
-      [recipe_id]
-    );
+    const result = await pool.query(recipesQuery.countReviews, [recipe_id]);
     return res.json({ count: result.rows[0].count });
   } catch (err) {
     console.log(err);
@@ -365,10 +334,7 @@ export async function getUserReview(req: Request, res: Response) {
   const user_id = req.session.userId;
   
   try {
-    const result = await pool.query(
-      "SELECT * FROM reviews WHERE recipe_id = $1::text AND user_id = $2::uuid LIMIT 1",
-      [recipe_id, user_id]
-    );
+    const result = await pool.query(recipesQuery.getUserReview, [recipe_id, user_id]);
     
     if (result.rows.length > 0) {
       return res.json(result.rows[0]);
@@ -390,21 +356,12 @@ export async function upsertReview(req: Request, res: Response, next: NextFuncti
   try {
     // Insert or update if already exists
     await pool.query(
-      `INSERT INTO reviews (user_id, recipe_id, rating, comment) 
-       VALUES ($1::uuid, $2::text, $3, $4)
-       ON CONFLICT (user_id, recipe_id) 
-       DO UPDATE SET rating = $3, comment = $4, created_at = NOW()`,
+      recipesQuery.upsertReview,
       [user_id, recipe_id, rating, comment]
     );
     
     // Update average rating
-    const recipe = await pool.query(
-      `UPDATE recipes 
-       SET rating = (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE recipe_id = $1::text) 
-       WHERE id = $1::text 
-       RETURNING *`,
-      [recipe_id]
-    );
+    const recipe = await pool.query(recipesQuery.updateRatings, [recipe_id]);
     
     const cache_key = getRecipeKey(recipe.rows[0].id as string);
     cacheSet(cache_key, recipe.rows[0]);

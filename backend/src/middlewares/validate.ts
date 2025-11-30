@@ -112,3 +112,18 @@ export function checkRecipeId(req: Request, res: Response, next: NextFunction) {
     if (req.body.recipe_id && !validator.isNumeric(req.body.recipe_id) && !validator.isUUID(req.body.recipe_id)) return res.status(400).end("bad recipe_id input");
     next();
 }
+
+export function checkPlanId(req: Request, res: Response, next: NextFunction) {
+    if (!validator.isUUID(req.params.plan_id)) return res.status(400).end("bad plan_id param");
+    next();
+}
+
+export function checkQueryPlanId(req: Request, res: Response, next: NextFunction) {
+    if (("plan_id" in req.query) && (req.query.plan_id) && !validator.isUUID(req.query.plan_id as string)) return res.status(400).end("bad plan_id query");
+    next();
+}
+
+export function checkQuantity(req: Request, res: Response, next: NextFunction) {
+    if (("quantity" in req.body) && (req.body.quantity !== undefined) && (typeof req.body.quantity !== "number")) return res.status(400).end("bad quantity input");
+    next();
+}

@@ -88,18 +88,24 @@ export async function updateMealEntryAPI(entryId: number, recipeId: number | nul
   }
 }
 
-export async function exportMealPlanToGoogleAPI(weekStart: string): Promise<void> {
+export async function exportMealPlanICS(weekStart: string): Promise<void> {
   try {
-    const res = await fetch(`/api/meal-planner/export/google?week_start=${weekStart}`, {
-      method: "PUT",
+    const res = await fetch(`/api/meal-planner/export/ics?week_start=${weekStart}`, {
+      method: "GET",
       credentials: "include",
     });
 
-    if (!res.ok) {
-       throw new Error(`Failed to export to Google Calendar: ${res.status}`);
-    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mealplan.ics";
+    a.click();
+
+    window.URL.revokeObjectURL(url);
   } catch (error) {
-    console.error("Error exporting to Google Calendar:", error);
+    console.error("Error exporting to ICS file:", error);
     throw error;
   }
 }

@@ -3,7 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import pool from '../db';
 
 // chatgpt: https://chatgpt.com/s/t_6928e2c8e9b881919955bfd7023bdd17 prompt: what about google auth (after asking about backend format for typescript app of our site idea)
-// and later on: https://chatgpt.com/s/t_69293b76c6408191b6f0b2fb588d82c4 for google calendar feature (dropped due to approval period needed from google)
+// and later on: https://chatgpt.com/s/t_69293b76c6408191b6f0b2fb588d82c4 for google calendar feature (removed due to approval period needed from google)
 
 passport.serializeUser(function (user: any, done) {
   done(null, user.id);
@@ -38,18 +38,12 @@ passport.use(
           const existing_email = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
 
           if (existing_email.rows.length > 0) {
-            user = await pool.query('UPDATE users SET google_id = $1, google_access_token = $2, google_refresh_token = $3 WHERE email = $4 RETURNING *', [googleId, _accessToken, _refreshToken, email]);
+
+            user = await pool.query('UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *', [googleId, email]);
           } else {
-            user = await pool.query(`INSERT INTO users (name, email, google_id, google_access_token, google_refresh_token) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [name, email, googleId, _accessToken, _refreshToken]);
+            user = await pool.query(`INSERT INTO users (name, email, google_id) VALUES ($1, $2, $3) RETURNING *`, [name, email, googleId]);
             await pool.query('INSERT INTO user_preferences (user_id) VALUES ($1)', [user.rows[0].id]);
           }
-        }
-        else {
-          // update refresh/access tokens
-          user = await pool.query(
-            'UPDATE users SET google_access_token = $1, google_refresh_token = $2 WHERE google_id = $3 RETURNING *',
-            [_accessToken, _refreshToken, googleId]
-          );
         }
 
         done(null, user.rows[0]);
