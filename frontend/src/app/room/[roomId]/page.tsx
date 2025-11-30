@@ -559,12 +559,23 @@ export default function RoomPage() {
   function cleanupAndLeave() {
     pollingAbort.current?.abort();
     pollingAbort.current = null;
-    peerConnections.current.forEach((pc) => pc.close());
+    peerConnections.current.forEach((pc) => {
+      pc.getSenders().forEach((s) => {
+        try { pc.removeTrack(s); } catch {}
+      });
+      pc.close();
+    });
     peerConnections.current.clear();
     remoteStreams.current.clear();
     remoteUsernames.current.clear();
     pendingCandidates.current.clear();
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    setRemoteIds([]);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
+    const video = document.getElementById("localVideo") as HTMLVideoElement | null;
+    if (video) video.srcObject = null;
+    localStreamRef.current = null;
     setRemoteIds([]);
   }
 

@@ -38,7 +38,7 @@ export const checkShoppingItemUser = `SELECT s.user_id
 
 export const checkShoppingListUser = `SELECT user_id
                                       FROM shopping_lists
-                                      AND id = $1
+                                      WHERE id = $1
                                       AND user_id = $2`
 
 export const deleteShoppingItem = `DELETE FROM shopping_items i
